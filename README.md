@@ -20,9 +20,37 @@ npm run preview
 
 - PWA metadata is in place with `public/manifest.webmanifest`, `public/icon.svg`, and a production service worker.
 - Startup now preloads only core combat GLBs first; city/stage prop GLBs lazy-load when their stage is selected.
-- Android packaging is not created yet. Next step: add Capacitor, generate an Android project, build a signed `.aab`, and test on real devices.
+- Android packaging is in place with Capacitor. The debug APK builds at `android/app/build/outputs/apk/debug/app-debug.apk`.
+- The Android app targets SDK 36, runs landscape, and enables hardware acceleration for WebGL.
+- A release `.aab` can be generated at `android/app/build/outputs/bundle/release/app-release.aab`.
+- Play Store upload signing is not configured yet. Next step: create an upload keystore, configure Gradle signing, rebuild the `.aab`, and test on real devices.
 - Windows Store packaging is not created yet. Next step: package the PWA as MSIX and run the Windows App Certification Kit.
 - Store art still needed: PNG icons, feature graphic, screenshots, trailer/key art, privacy policy page, and age-rating answers.
+
+## Android Build
+
+```bash
+npm run android:sync
+npm run android:debug
+```
+
+Debug APK output:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Release bundle command, after signing is configured:
+
+```bash
+npm run android:bundle
+```
+
+Release AAB output:
+
+```text
+android/app/build/outputs/bundle/release/app-release.aab
+```
 
 ## Controls
 
