@@ -2,6 +2,8 @@ import * as BABYLON from "@babylonjs/core";
 import "@babylonjs/core/Loading/sceneLoader";
 import "@babylonjs/loaders/glTF";
 
+const MODEL_LOAD_TIMEOUT_MS = 18000;
+
 export const ASSET_PATHS = {
   alien: "/assets/models/alien_enemy.glb",
   rifle: "/assets/models/plasma_rifle.glb",
@@ -26,11 +28,15 @@ export const ASSET_PATHS = {
 export const CORE_ASSET_KEYS = [
   "alien",
   "rifle",
+  "plasmaCannon"
+];
+
+export const BACKGROUND_ASSET_KEYS = [
   "alienGruntGreen",
   "alienRunnerPurple",
   "alienBruteArmored",
   "alienBossHorned",
-  "plasmaCannon"
+  "alienBrutePurple"
 ];
 
 export async function prepareAssetPlaceholders(scene, keys = Object.keys(ASSET_PATHS)) {
@@ -56,16 +62,34 @@ export async function loadModelAssets(scene, assets, keys) {
 async function tryLoadModel(scene, path) {
   try {
     const cachePath = `${path}?v=${Date.now()}`;
-    const response = await fetch(cachePath, { method: "HEAD", cache: "reload" });
+    const response = await fetchWithTimeout(cachePath, { method: "HEAD", cache: "reload" }, 5000);
     if (!response.ok) return null;
 
-    const result = await BABYLON.SceneLoader.LoadAssetContainerAsync(path.substring(0, path.lastIndexOf("/") + 1), `${path.substring(path.lastIndexOf("/") + 1)}?v=${Date.now()}`, scene);
+    const loadPromise = BABYLON.SceneLoader.LoadAssetContainerAsync(path.substring(0, path.lastIndexOf("/") + 1), `${path.substring(path.lastIndexOf("/") + 1)}?v=${Date.now()}`, scene);
+    const result = await withTimeout(loadPromise, MODEL_LOAD_TIMEOUT_MS);
+    if (!result) return null;
+
     const root = new BABYLON.TransformNode(path, scene);
     result.animationGroups.forEach(group => group.stop());
     return { root, animationGroups: result.animationGroups, container: result };
   } catch {
     return null;
   }
+}
+
+function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
+}
+
+function withTimeout(promise, timeoutMs) {
+  let timeout;
+  const timeoutPromise = new Promise(resolve => {
+    timeout = setTimeout(() => resolve(null), timeoutMs);
+  });
+  promise.catch(() => null);
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeout));
 }
 
 export function cloneLoadedAsset(asset, name, options = {}) {
@@ -174,6 +198,24 @@ export function fitModelToLargestAxis(root, targetSize) {
 
   root.position.x += parentPosition.x - scaledBounds.center.x;
   root.position.y += parentPosition.y - scaledBounds.center.y;
+  root.position.z += parentPosition.z - scaledBounds.center.z;
+  return true;
+}
+
+export function fitModelToLargestAxisOnGround(root, targetSize, groundY = 0) {
+  const initialBounds = getModelBounds(root);
+  if (!initialBounds) return false;
+  const parentPosition = root.parent?.getAbsolutePosition?.() || BABYLON.Vector3.Zero();
+
+  const largestAxis = Math.max(initialBounds.size.x, initialBounds.size.y, initialBounds.size.z);
+  if (largestAxis <= 0) return false;
+
+  root.scaling.scaleInPlace(targetSize / largestAxis);
+  const scaledBounds = getModelBounds(root);
+  if (!scaledBounds) return false;
+
+  root.position.x += parentPosition.x - scaledBounds.center.x;
+  root.position.y += parentPosition.y + groundY - scaledBounds.min.y;
   root.position.z += parentPosition.z - scaledBounds.center.z;
   return true;
 }

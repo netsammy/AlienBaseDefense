@@ -6,7 +6,7 @@ import { applyMobileMovement, createPlayerCamera, keepPlayerInsideArena, resetPl
 import { clearAliens, spawnWave, updateAliens } from "./aliens.js";
 import { clearPickups, updatePickups } from "./pickups.js";
 import { loadBestScore } from "./highScore.js";
-import { CORE_ASSET_KEYS, cloneLoadedAsset, fitModelToLargestAxis, loadModelAssets } from "./assets.js";
+import { BACKGROUND_ASSET_KEYS, CORE_ASSET_KEYS, cloneLoadedAsset, fitModelToLargestAxis, fitModelToLargestAxisOnGround, loadModelAssets } from "./assets.js";
 import { updateBaseShieldFeedback } from "./effects.js";
 import { createStarterTowers, updateTowers } from "./towers.js";
 import { loadSave, saveGame } from "./saveSystem.js";
@@ -164,9 +164,11 @@ function refreshStageTheme(context) {
     if (prop.assetKey && addStageAssetProp(context, prop)) return;
 
     const box = BABYLON.MeshBuilder.CreateBox(prop.name, prop.size, scene);
-    box.position = prop.position;
+    box.position = prop.position.clone();
+    box.position.y += (prop.size?.height || 0) * 0.5;
     box.rotation.y = prop.rotation;
     box.material = prop.material === "secondary" ? secondaryMat : prop.material === "sign" ? signMat : accentMat;
+    box.checkCollisions = Boolean(prop.checkCollisions);
     context.stageThemeMeshes.push(box);
   });
 
@@ -175,7 +177,7 @@ function refreshStageTheme(context) {
     .filter(Boolean)
     .filter(assetKey => !Object.prototype.hasOwnProperty.call(context.loadedAssets, assetKey));
 
-  if (missingAssetKeys.length > 0) {
+  if (missingAssetKeys.length > 0 && context.stageAssetLoadingEnabled) {
     const loadToken = Symbol(selectedStage);
     context.stageThemeLoadToken = loadToken;
     loadModelAssets(scene, context.loadedAssets, missingAssetKeys).then(() => {
@@ -196,19 +198,143 @@ function addStageAssetProp(context, prop) {
   });
   if (!model) return false;
 
-  const fitted = fitModelToLargestAxis(model, prop.targetSize || 3);
+  const fitted = fitModelToLargestAxisOnGround(model, prop.targetSize || 3, prop.groundY || 0);
   if (!fitted) {
     model.dispose();
     return false;
   }
 
-  model.position = prop.position.clone();
+  model.position.x += prop.position.x;
+  model.position.y += prop.position.y;
+  model.position.z += prop.position.z;
   model.rotation = new BABYLON.Vector3(0, prop.rotation || 0, 0);
   model.getChildMeshes(false).forEach(mesh => {
     mesh.checkCollisions = Boolean(prop.checkCollisions);
   });
   context.stageThemeMeshes.push(model);
   return true;
+}
+
+const SHARED_STAGE_PROPS = [
+  {
+    name: "StreetPlanterBarrier",
+    assetKey: "streetPlanterBarrier",
+    position: new BABYLON.Vector3(18, 0, 18),
+    targetSize: 3.7,
+    rotation: 0.75,
+    size: { width: 3.2, height: 1.0, depth: 1.0 },
+    material: "secondary",
+    checkCollisions: true
+  },
+  {
+    name: "StreetPlanterBarrier",
+    assetKey: "streetPlanterBarrier",
+    position: new BABYLON.Vector3(-21, 0, -10),
+    targetSize: 3.4,
+    rotation: -0.35,
+    size: { width: 3.2, height: 1.0, depth: 1.0 },
+    material: "secondary",
+    checkCollisions: true
+  },
+  {
+    name: "SandbagWall",
+    assetKey: "sandbagWall",
+    position: new BABYLON.Vector3(9, 0, -22),
+    targetSize: 4.3,
+    rotation: -0.1,
+    size: { width: 3.3, height: 1.1, depth: 0.8 },
+    material: "accent",
+    checkCollisions: true
+  },
+  {
+    name: "SandbagWall",
+    assetKey: "sandbagWall",
+    position: new BABYLON.Vector3(-10, 0, 22),
+    targetSize: 4.1,
+    rotation: 0.25,
+    size: { width: 3.3, height: 1.1, depth: 0.8 },
+    material: "accent",
+    checkCollisions: true
+  },
+  {
+    name: "RoadBarricadeUrdu",
+    assetKey: "roadBarricadeUrdu",
+    position: new BABYLON.Vector3(23, 0, -4),
+    targetSize: 3.4,
+    rotation: 1.35,
+    size: { width: 2.3, height: 1.1, depth: 0.25 },
+    material: "sign",
+    checkCollisions: true
+  },
+  {
+    name: "RoadBarricadeUrdu",
+    assetKey: "roadBarricadeUrdu",
+    position: new BABYLON.Vector3(-23, 0, 6),
+    targetSize: 3.4,
+    rotation: 1.35,
+    size: { width: 2.3, height: 1.1, depth: 0.25 },
+    material: "sign",
+    checkCollisions: true
+  },
+  {
+    name: "SectorSignBoard",
+    assetKey: "sectorSignBoard",
+    position: new BABYLON.Vector3(3, 0, 25),
+    targetSize: 3.7,
+    rotation: 0,
+    size: { width: 2.8, height: 1.6, depth: 1.5 },
+    material: "sign",
+    checkCollisions: true
+  },
+  {
+    name: "CityWatchtower",
+    assetKey: "cityWatchtower",
+    position: new BABYLON.Vector3(-25, 0, -19),
+    targetSize: 4.7,
+    rotation: 0.15,
+    size: { width: 0.7, height: 4.4, depth: 0.7 },
+    material: "sign",
+    checkCollisions: true
+  }
+];
+
+const STAGE_PROP_ROTATION = {
+  "lahore-outskirts": 0,
+  "food-street": 0.32,
+  "minar-zone": -0.28,
+  "karachi-harbor": 0.55,
+  "islamabad-sector": -0.48,
+  "peshawar-gate": 0.82
+};
+
+function withSharedStageProps(stageId, palette) {
+  return {
+    ...palette,
+    props: [
+      ...palette.props,
+      ...getSharedStageProps(stageId, palette.prefix)
+    ]
+  };
+}
+
+function getSharedStageProps(stageId, prefix) {
+  const rotationOffset = STAGE_PROP_ROTATION[stageId] || 0;
+  return SHARED_STAGE_PROPS.map((prop, index) => ({
+    ...prop,
+    name: `${prefix}Shared${prop.name}${index + 1}`,
+    position: rotateAroundCenter(prop.position, rotationOffset),
+    rotation: prop.rotation + rotationOffset
+  }));
+}
+
+function rotateAroundCenter(position, angle) {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return new BABYLON.Vector3(
+    position.x * cos - position.z * sin,
+    position.y,
+    position.x * sin + position.z * cos
+  );
 }
 
 function getStagePalette(stageId) {
@@ -221,16 +347,13 @@ function getStagePalette(stageId) {
       props: [
         { name: "MarketStallCrates", assetKey: "marketStallCrates", position: new BABYLON.Vector3(15, 0, 11), targetSize: 4.2, rotation: 0.3, size: { width: 2.4, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
         { name: "UpgradeShopWorkbench", assetKey: "upgradeShopWorkbench", position: new BABYLON.Vector3(-16, 0, -12), targetSize: 4, rotation: -0.5, size: { width: 2.4, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
-        { name: "RoadBarricadeUrdu", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(-18, 0, 10), targetSize: 3.7, rotation: 0.6, size: { width: 2.6, height: 1.2, depth: 0.25 }, material: "sign", checkCollisions: true },
-        { name: "SandbagWall", assetKey: "sandbagWall", position: new BABYLON.Vector3(8, 0, -16), targetSize: 4.5, rotation: -0.2, size: { width: 3.3, height: 1.1, depth: 0.8 }, material: "accent", checkCollisions: true },
-        { name: "StreetPlanterBarrier", assetKey: "streetPlanterBarrier", position: new BABYLON.Vector3(11, 0, 5), targetSize: 3.4, rotation: 1.2, size: { width: 3.2, height: 1.0, depth: 1.0 }, material: "secondary", checkCollisions: true },
         { name: "MarketStallCrates", assetKey: "marketStallCrates", position: new BABYLON.Vector3(-10, 0, 15), targetSize: 3.6, rotation: -0.8, size: { width: 2.8, height: 1.2, depth: 1.2 }, material: "secondary", checkCollisions: true }
       ]
     }
   };
 
   if (stageId === "karachi-harbor") {
-    return {
+    return withSharedStageProps(stageId, {
       prefix: "Karachi",
       accent: new BABYLON.Color3(0.05, 0.45, 0.85),
       secondary: new BABYLON.Color3(0.95, 0.38, 0.08),
@@ -238,31 +361,26 @@ function getStagePalette(stageId) {
       props: [
         { name: "KarachiContainerA", assetKey: "karachiShippingContainer", position: new BABYLON.Vector3(17, 0, 9), targetSize: 4.8, rotation: 0.1, size: { width: 3.6, height: 1.4, depth: 1.3 }, material: "secondary", checkCollisions: true },
         { name: "KarachiContainerB", assetKey: "karachiShippingContainer", position: new BABYLON.Vector3(-15, 0, -13), targetSize: 5.4, rotation: -0.4, size: { width: 4.2, height: 1.4, depth: 1.3 }, material: "accent", checkCollisions: true },
-        { name: "CityWatchtower", assetKey: "cityWatchtower", position: new BABYLON.Vector3(-21, 0, 8), targetSize: 4.8, rotation: 0, size: { width: 0.7, height: 4.4, depth: 0.7 }, material: "sign", checkCollisions: true },
-        { name: "KarachiContainerC", assetKey: "karachiShippingContainer", position: new BABYLON.Vector3(8, 0, -18), targetSize: 4.6, rotation: 1.1, size: { width: 3.8, height: 1.4, depth: 1.3 }, material: "accent", checkCollisions: true },
-        { name: "RoadBarricadeUrdu", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(-6, 0, 16), targetSize: 3.2, rotation: 0.2, size: { width: 2.3, height: 1.1, depth: 0.25 }, material: "sign", checkCollisions: true }
+        { name: "KarachiContainerC", assetKey: "karachiShippingContainer", position: new BABYLON.Vector3(8, 0, -18), targetSize: 4.6, rotation: 1.1, size: { width: 3.8, height: 1.4, depth: 1.3 }, material: "accent", checkCollisions: true }
       ]
-    };
+    });
   }
 
   if (stageId === "islamabad-sector") {
-    return {
+    return withSharedStageProps(stageId, {
       prefix: "Islamabad",
       accent: new BABYLON.Color3(0.75, 0.85, 0.9),
       secondary: new BABYLON.Color3(0.14, 0.55, 0.35),
       sign: new BABYLON.Color3(0.3, 0.42, 0.5),
       props: [
         { name: "SectorSignBoard", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(15, 0, 12), targetSize: 4.2, rotation: 0.45, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "accent", checkCollisions: true },
-        { name: "StreetPlanterBarrier", assetKey: "streetPlanterBarrier", position: new BABYLON.Vector3(-16, 0, -11), targetSize: 4.2, rotation: 0.1, size: { width: 3.5, height: 1.0, depth: 1.0 }, material: "secondary", checkCollisions: true },
-        { name: "RoadBarricadeUrdu", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(-18, 0, 10), targetSize: 3.4, rotation: 0.6, size: { width: 2.3, height: 1.1, depth: 0.25 }, material: "sign", checkCollisions: true },
-        { name: "SectorSignBoard", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(4, 0, -17), targetSize: 3.8, rotation: -0.25, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "accent", checkCollisions: true },
-        { name: "CityWatchtower", assetKey: "cityWatchtower", position: new BABYLON.Vector3(20, 0, -7), targetSize: 4.4, rotation: 0.4, size: { width: 0.7, height: 4.4, depth: 0.7 }, material: "sign", checkCollisions: true }
+        { name: "SectorSignBoard", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(4, 0, -17), targetSize: 3.8, rotation: -0.25, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "accent", checkCollisions: true }
       ]
-    };
+    });
   }
 
   if (stageId === "peshawar-gate") {
-    return {
+    return withSharedStageProps(stageId, {
       prefix: "Peshawar",
       accent: new BABYLON.Color3(0.68, 0.38, 0.18),
       secondary: new BABYLON.Color3(0.88, 0.68, 0.38),
@@ -270,14 +388,12 @@ function getStagePalette(stageId) {
       props: [
         { name: "PeshawarGate", assetKey: "peshawarGate", position: new BABYLON.Vector3(15, 0, 11), targetSize: 5.2, rotation: 0, size: { width: 4.0, height: 2.8, depth: 1.2 }, material: "accent", checkCollisions: true },
         { name: "MarketStallCrates", assetKey: "marketStallCrates", position: new BABYLON.Vector3(-16, 0, -13), targetSize: 4.4, rotation: -0.35, size: { width: 3.2, height: 1.4, depth: 1.3 }, material: "secondary", checkCollisions: true },
-        { name: "SandbagWall", assetKey: "sandbagWall", position: new BABYLON.Vector3(-5, 0, 18), targetSize: 4.2, rotation: 0.25, size: { width: 3.3, height: 1.1, depth: 0.8 }, material: "sign", checkCollisions: true },
-        { name: "PeshawarGateSmall", assetKey: "peshawarGate", position: new BABYLON.Vector3(-20, 0, 7), targetSize: 4.2, rotation: 0.9, size: { width: 4.0, height: 2.8, depth: 1.2 }, material: "accent", checkCollisions: true },
-        { name: "RoadBarricadeUrdu", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(8, 0, -17), targetSize: 3.4, rotation: -0.35, size: { width: 2.3, height: 1.1, depth: 0.25 }, material: "sign", checkCollisions: true }
+        { name: "PeshawarGateSmall", assetKey: "peshawarGate", position: new BABYLON.Vector3(-20, 0, 7), targetSize: 4.2, rotation: 0.9, size: { width: 4.0, height: 2.8, depth: 1.2 }, material: "accent", checkCollisions: true }
       ]
-    };
+    });
   }
 
-  return common.lahore;
+  return withSharedStageProps(stageId, common.lahore);
 }
 
 function createOuterArenaDetails(scene, materials) {
@@ -395,6 +511,7 @@ export function createGameScene({ canvas, engine, ui }) {
     muzzle,
     loadedAssets: {},
     assetsReady: Promise.resolve(),
+    stageAssetLoadingEnabled: false,
     stageThemeLoadToken: null,
     stageThemeMeshes: [],
     basePulseUntil: 0,
@@ -411,8 +528,12 @@ export function createGameScene({ canvas, engine, ui }) {
 
   context.assetsReady = loadModelAssets(scene, context.loadedAssets, CORE_ASSET_KEYS).then(assets => {
     attachRifleModel(context);
+    context.stageAssetLoadingEnabled = true;
     refreshStageTheme(context);
     if (ui.loadingOverlay) ui.loadingOverlay.style.display = "none";
+    loadModelAssets(scene, context.loadedAssets, BACKGROUND_ASSET_KEYS).then(() => {
+      refreshStageTheme(context);
+    });
     return assets;
   });
 
