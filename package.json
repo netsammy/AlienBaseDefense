@@ -1,0 +1,19 @@
+{
+  "name": "alien-base-defense",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^8.6.1",
+    "@babylonjs/loaders": "^8.6.1",
+    "vite": "^5.4.19"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.3.0"
+  }
+}
