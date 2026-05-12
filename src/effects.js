@@ -5,7 +5,8 @@ const GUN_RECOIL_POSITION = new BABYLON.Vector3(0.86, -0.69, 0.92);
 
 export function showGunFireEffect({ gunRoot, muzzle }) {
   muzzle.isVisible = true;
-  muzzle.scaling = new BABYLON.Vector3(1.9, 1.9, 1.9);
+  const scale = gunRoot.metadata?.muzzleScale || 1;
+  muzzle.scaling = new BABYLON.Vector3(1.9 * scale, 1.9 * scale, 1.9 * scale);
 
   gunRoot.position.copyFrom(GUN_RECOIL_POSITION);
 
@@ -38,11 +39,12 @@ export function pulseBaseDamage(context) {
   context.basePulseUntil = performance.now() + 160;
 }
 
-export function createImpactEffect(scene, point, isAlienHit) {
+export function createImpactEffect(scene, point, isAlienHit, effectsScale = 1) {
   if (!point) return;
+  if (effectsScale <= 0.6 && !isAlienHit && Math.random() < 0.45) return;
 
   const impact = BABYLON.MeshBuilder.CreateSphere("Impact", {
-    diameter: isAlienHit ? 0.45 : 0.28
+    diameter: (isAlienHit ? 0.45 : 0.28) * effectsScale
   }, scene);
   impact.position = point.clone();
   impact.scaling = new BABYLON.Vector3(0.35, 0.35, 0.35);
@@ -102,7 +104,7 @@ export function flashAlienHit(alien) {
   });
 }
 
-export function createAlienExplosion(scene, alien, material) {
+export function createAlienExplosion(scene, alien, material, effectsScale = 1) {
   const explosion = BABYLON.MeshBuilder.CreateSphere("AlienExplosion", { diameter: 0.7 }, scene);
   explosion.position = alien.position.add(new BABYLON.Vector3(0, 1.2, 0));
   explosion.material = material;
@@ -114,15 +116,19 @@ export function createAlienExplosion(scene, alien, material) {
     60,
     12,
     new BABYLON.Vector3(1, 1, 1),
-    new BABYLON.Vector3(3, 3, 3),
+    new BABYLON.Vector3(3 * effectsScale, 3 * effectsScale, 3 * effectsScale),
     BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT,
     null,
     () => explosion.dispose()
   );
 }
 
-export function createTracer(scene, camera, ray, bulletMat) {
-  const tracer = BABYLON.MeshBuilder.CreateCylinder("Tracer", { diameter: 0.035, height: 12 }, scene);
+export function createTracer(scene, camera, ray, bulletMat, powerScale = 1, effectsScale = 1) {
+  if (effectsScale <= 0.6 && Math.random() < 0.22) return;
+  const tracer = BABYLON.MeshBuilder.CreateCylinder("Tracer", {
+    diameter: 0.035 * powerScale,
+    height: 12 + powerScale * 1.5
+  }, scene);
   tracer.material = bulletMat;
   tracer.rotation.x = Math.PI / 2;
   tracer.position = camera.position.add(ray.direction.scale(6));

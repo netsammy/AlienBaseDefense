@@ -12,6 +12,8 @@ import { createStarterTowers, updateTowers } from "./towers.js";
 import { loadSave, saveGame } from "./saveSystem.js";
 import { setupShop, refreshShop } from "./shop.js";
 import { setupStageSelect } from "./stages.js";
+import { setupGraphicsQuality } from "./graphics.js";
+import { stopBossMusic } from "./sound.js";
 
 function createMaterials(scene) {
   const ground = new BABYLON.StandardMaterial("GroundMat", scene);
@@ -404,16 +406,19 @@ export function createGameScene({ canvas, engine, ui }) {
   context.refreshStageTheme = () => refreshStageTheme(context);
   setupShop(context);
   setupStageSelect(context);
+  setupGraphicsQuality(context);
   refreshStageTheme(context);
 
   context.assetsReady = loadModelAssets(scene, context.loadedAssets, CORE_ASSET_KEYS).then(assets => {
     attachRifleModel(context);
     refreshStageTheme(context);
+    if (ui.loadingOverlay) ui.loadingOverlay.style.display = "none";
     return assets;
   });
 
   context.resetGame = async () => {
     clearTimeout(game.waveTimer);
+    stopBossMusic();
     clearAliens(game);
     clearPickups(game);
     resetGameState();

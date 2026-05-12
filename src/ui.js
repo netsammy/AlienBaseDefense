@@ -21,6 +21,11 @@ export function getUI() {
     maxAmmo: document.getElementById("maxAmmo"),
     weaponStatus: document.getElementById("weaponStatus"),
     message: document.getElementById("message"),
+    loadingOverlay: document.getElementById("loadingOverlay"),
+    loadingText: document.getElementById("loadingText"),
+    bossPanel: document.getElementById("bossPanel"),
+    bossHealthFill: document.getElementById("bossHealthFill"),
+    bossHealthText: document.getElementById("bossHealthText"),
     startOverlay: document.getElementById("startOverlay"),
     startButton: document.getElementById("startButton"),
     restartButton: document.getElementById("restartButton"),
@@ -40,6 +45,7 @@ export function getUI() {
     rewardSummary: document.getElementById("rewardSummary"),
     rewardButtons: document.querySelectorAll(".rewardBtn"),
     shopButtons: document.querySelectorAll(".shopBtn"),
+    graphicsButtons: document.querySelectorAll(".graphicsBtn"),
     stageButtons: document.querySelectorAll(".stageBtn"),
     mobileControls: document.getElementById("mobileControls"),
     joystick: document.getElementById("joystick"),
@@ -69,6 +75,21 @@ export function updateUI(ui, game) {
   ui.ammo.textContent = game.ammo;
   ui.maxAmmo.textContent = game.maxAmmo;
   ui.weaponStatus.textContent = getWeaponStatus(game);
+  updateBossPanel(ui, game);
+}
+
+function updateBossPanel(ui, game) {
+  if (!ui.bossPanel || !ui.bossHealthFill || !ui.bossHealthText) return;
+  const boss = game.aliens.find(alien => alien.variant === "boss" && !alien.dead);
+  if (!boss || !game.started || game.gameOver) {
+    ui.bossPanel.style.display = "none";
+    return;
+  }
+
+  const percent = Math.max(0, Math.min(1, boss.health / boss.maxHealth));
+  ui.bossPanel.style.display = "block";
+  ui.bossHealthFill.style.transform = `scaleX(${percent})`;
+  ui.bossHealthText.textContent = `${Math.ceil(boss.health)} / ${boss.maxHealth}`;
 }
 
 export function drawAlienMap(ui, game, camera) {

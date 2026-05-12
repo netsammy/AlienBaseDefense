@@ -66,6 +66,47 @@
       text-align: center;
     }
 
+    #bossPanel {
+      left: 50%;
+      top: 82px;
+      transform: translateX(-50%);
+      width: min(520px, 46vw);
+      display: none;
+      text-align: center;
+      padding: 10px 14px;
+      border-color: rgba(255, 74, 48, 0.78);
+      box-shadow: 0 0 24px rgba(255, 74, 48, 0.24);
+    }
+
+    #bossPanel h3 {
+      margin: 0 0 7px;
+      color: #ffd2c8;
+      letter-spacing: 2px;
+      font-size: 14px;
+    }
+
+    #bossHealthBack {
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(90, 0, 0, 0.76);
+      border: 1px solid rgba(255, 210, 200, 0.32);
+    }
+
+    #bossHealthFill {
+      width: 100%;
+      height: 100%;
+      transform-origin: left center;
+      background: linear-gradient(90deg, #ff3828, #ffe66d);
+      box-shadow: 0 0 14px rgba(255, 74, 48, 0.6);
+    }
+
+    #bossHealthText {
+      margin-top: 5px;
+      color: #ffd2c8;
+      font-size: 12px;
+    }
+
     #alienMapPanel {
       top: 18px;
       left: 282px;
@@ -174,6 +215,30 @@
       line-height: 1.5;
     }
 
+    #menuStatus {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .menuStat {
+      border: 1px solid rgba(191, 246, 255, 0.45);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(0, 42, 56, 0.58);
+      font-size: 13px;
+      color: #bff6ff;
+      text-align: left;
+    }
+
+    .menuStat strong {
+      display: block;
+      margin-top: 4px;
+      color: white;
+      font-size: 18px;
+    }
+
     #difficultyButtons {
       display: flex;
       justify-content: center;
@@ -236,6 +301,33 @@
       color: #bfeeff;
     }
 
+    #graphicsSelect {
+      margin-top: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: #bff6ff;
+      font-size: 13px;
+    }
+
+    .graphicsBtn {
+      border: 1px solid rgba(191, 246, 255, 0.55);
+      border-radius: 999px;
+      padding: 8px 13px;
+      background: rgba(0, 22, 32, 0.84);
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .graphicsBtn.selected {
+      border-color: #ffe66d;
+      color: #001018;
+      background: #ffe66d;
+    }
+
     #menuActions {
       display: flex;
       justify-content: center;
@@ -281,6 +373,58 @@
       z-index: 20;
       pointer-events: none;
       transition: background 0.12s ease;
+    }
+
+    #loadingOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, rgba(0, 135, 160, 0.18), rgba(0, 0, 0, 0.94));
+      color: white;
+      text-align: center;
+    }
+
+    #loadingCard {
+      width: min(420px, calc(100vw - 36px));
+      border: 1px solid rgba(0, 220, 255, 0.58);
+      border-radius: 14px;
+      padding: 22px;
+      background: rgba(0, 12, 24, 0.9);
+      box-shadow: 0 0 44px rgba(0, 220, 255, 0.2);
+    }
+
+    #loadingCard h2 {
+      margin: 0 0 10px;
+      letter-spacing: 1px;
+    }
+
+    #loadingText {
+      color: #bff6ff;
+      margin-bottom: 14px;
+    }
+
+    #loadingBar {
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(191, 246, 255, 0.16);
+    }
+
+    #loadingBar span {
+      display: block;
+      width: 42%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #00d6ff, #ffe66d);
+      animation: loadingSweep 1.1s ease-in-out infinite alternate;
+    }
+
+    @keyframes loadingSweep {
+      from { transform: translateX(-30%); }
+      to { transform: translateX(170%); }
     }
 
     #pauseOverlay {
@@ -638,6 +782,25 @@
         display: none;
       }
 
+      #bossPanel {
+        top: max(56px, calc(env(safe-area-inset-top) + 48px));
+        width: min(300px, 38vw);
+        padding: 7px 9px;
+      }
+
+      #bossPanel h3 {
+        font-size: 11px;
+        margin-bottom: 5px;
+      }
+
+      #bossHealthBack {
+        height: 7px;
+      }
+
+      #bossHealthText {
+        display: none;
+      }
+
       #crosshair {
         width: 22px;
         height: 22px;
@@ -713,6 +876,21 @@
         font-size: 13px;
       }
 
+      #menuStatus {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 7px;
+        margin: 9px 0;
+      }
+
+      .menuStat {
+        padding: 7px;
+        font-size: 10px;
+      }
+
+      .menuStat strong {
+        font-size: 13px;
+      }
+
       #stageSelect {
         grid-template-columns: repeat(3, 1fr);
         gap: 7px;
@@ -720,9 +898,14 @@
       }
 
       .stageBtn,
-      .difficultyBtn {
+      .difficultyBtn,
+      .graphicsBtn {
         padding: 9px 10px;
         font-size: 12px;
+      }
+
+      #graphicsSelect {
+        margin-top: 10px;
       }
 
       #rewardMenu {
@@ -749,6 +932,14 @@
 <body>
   <canvas id="renderCanvas"></canvas>
 
+  <div id="loadingOverlay">
+    <div id="loadingCard">
+      <h2>ALIEN BASE DEFENSE</h2>
+      <div id="loadingText">Loading combat systems...</div>
+      <div id="loadingBar"><span></span></div>
+    </div>
+  </div>
+
   <div id="hud">
     <div id="stats" class="panel">
       <div>MODE: <span id="difficultyLabel">Easy</span></div>
@@ -764,6 +955,12 @@
     </div>
 
     <div id="message" class="panel">Choose difficulty to defend the base</div>
+
+    <div id="bossPanel" class="panel">
+      <h3>BOSS ALIEN</h3>
+      <div id="bossHealthBack"><div id="bossHealthFill"></div></div>
+      <div id="bossHealthText">0 / 0</div>
+    </div>
 
     <button id="restartButton">RESTART</button>
 
@@ -856,6 +1053,11 @@
   <div id="startOverlay">
     <div id="startCard">
       <h1>ALIEN BASE DEFENSE</h1>
+      <div id="menuStatus">
+        <div class="menuStat">Mode<strong>Survival FPS</strong></div>
+        <div class="menuStat">Stages<strong>6 Cities</strong></div>
+        <div class="menuStat">Build<strong>Store Prep</strong></div>
+      </div>
       <p>
         Aliens are rushing toward your base. Move inside the defense zone, shoot enemies,
         collect health/ammo, and stop them before they destroy the base shield.
@@ -879,6 +1081,13 @@
 
       <div id="difficultyHint">
         Start with Easy. Normal and Hard increase alien count, speed, damage, and health.
+      </div>
+
+      <div id="graphicsSelect">
+        GRAPHICS
+        <button class="graphicsBtn" data-graphics-quality="low">LOW</button>
+        <button class="graphicsBtn selected" data-graphics-quality="medium">MEDIUM</button>
+        <button class="graphicsBtn" data-graphics-quality="high">HIGH</button>
       </div>
 
       <div id="menuActions">

@@ -5,6 +5,7 @@ export const game = {
   gameOver: false,
   difficulty: "easy",
   selectedStage: "lahore-outskirts",
+  graphicsQuality: "medium",
   wave: 1,
   stage: 1,
   score: 0,
@@ -34,6 +35,7 @@ export const game = {
   fireRateMultiplier: 1,
   shieldRegenBonus: 0,
   playerDamageBonus: 0,
+  effectsScale: 1,
   towers: [],
   reloading: false,
   aliens: [],
@@ -75,6 +77,7 @@ export function resetGameState() {
   game.fireRateMultiplier = 1 + game.permanentUpgrades.fireRate * 0.08;
   game.shieldRegenBonus = 0;
   game.playerDamageBonus = game.permanentUpgrades.rifleDamage * 0.25;
+  game.effectsScale = game.graphicsQuality === "low" ? 0.55 : game.graphicsQuality === "high" ? 1.15 : 0.85;
   game.towers = [];
   game.reloading = false;
   game.lastShot = 0;

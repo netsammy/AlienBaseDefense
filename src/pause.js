@@ -1,5 +1,6 @@
 import { clearAliens } from "./aliens.js";
 import { clearPickups } from "./pickups.js";
+import { stopBossMusic } from "./sound.js";
 
 export function setPaused(context, paused) {
   const { game, ui } = context;
@@ -20,6 +21,7 @@ export function togglePause(context) {
 export function returnToMainMenu(context) {
   const { game, ui } = context;
   clearTimeout(game.waveTimer);
+  stopBossMusic();
   clearAliens(game);
   clearPickups(game);
   game.started = false;

@@ -37,24 +37,26 @@ export function fire(context) {
   game.weaponStatus = "READY";
   game.weaponStatusUntil = 0;
   updateUI(ui, game);
+  gunRoot.metadata = { ...(gunRoot.metadata || {}), muzzleScale: 1 + game.playerDamageBonus * 0.18 };
   showGunFireEffect({ gunRoot, muzzle });
   applyCameraShake(camera, 0.018);
   playSound("gun_fire");
 
   const ray = camera.getForwardRay(85);
   const hit = scene.pickWithRay(ray, mesh => mesh.metadata && mesh.metadata.alienRoot);
-  createTracer(scene, camera, ray, materials.bullet);
+  const powerScale = 1 + game.playerDamageBonus * 0.22;
+  createTracer(scene, camera, ray, materials.bullet, powerScale, game.effectsScale);
 
   if (hit && hit.pickedMesh) {
     const alien = hit.pickedMesh.metadata.alienRoot;
     if (!alien || alien.dead) return;
-    createImpactEffect(scene, hit.pickedPoint, true);
+    createImpactEffect(scene, hit.pickedPoint, true, game.effectsScale);
     flashAlienHit(alien);
     playSound("alien_hit");
     damageAlien(context, alien, 1 + game.playerDamageBonus, "player");
   } else {
     const missPoint = ray.origin.add(ray.direction.scale(18));
-    createImpactEffect(scene, missPoint, false);
+    createImpactEffect(scene, missPoint, false, game.effectsScale);
   }
 }
 

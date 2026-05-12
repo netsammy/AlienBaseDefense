@@ -4,7 +4,7 @@ import { updateUI } from "./ui.js";
 import { createAlienExplosion } from "./effects.js";
 import { createAmmoPack, createHealthPack } from "./pickups.js";
 import { updateBestScore } from "./highScore.js";
-import { playSound } from "./sound.js";
+import { playSound, startBossMusic, stopBossMusic } from "./sound.js";
 import { cloneLoadedAsset, fitModelToHeight, getModelBounds } from "./assets.js";
 import { showRewardChoices } from "./rewards.js";
 import { pulseBaseDamage } from "./effects.js";
@@ -159,8 +159,12 @@ function finishWaveSpawn(context, difficulty) {
   }
 
   ui.message.textContent = game.wave % 5 === 0
-    ? "Boss wave! Horned boss has entered the arena. Keep it away from the red zone!"
+    ? "BOSS WARNING! Horned boss has entered the arena. Keep it away from the red zone!"
     : `${getAlienMixLabel(difficulty)} Safety shield active.`;
+  if (game.wave % 5 === 0) {
+    playSound("boss_warning");
+    startBossMusic();
+  }
   setTimeout(() => {
     if (!game.gameOver) ui.message.textContent = "Tip: move backwards, sprint with Shift, and keep aliens outside the red zone.";
   }, 1700);
@@ -257,8 +261,9 @@ export function killAlien(context, alien, source = "player") {
     createAmmoPack(context, alien.position.clone());
   }
 
-  createAlienExplosion(scene, alien, materials.alien);
+  createAlienExplosion(scene, alien, materials.alien, game.effectsScale);
   playSound("alien_death");
+  if (alien.variant === "boss") stopBossMusic();
 
   game.aliens = game.aliens.filter(a => a !== alien);
   setAlienHealthBarVisible(alien, false);
@@ -302,6 +307,7 @@ export function damagePlayer(context, amount) {
 
   if (game.health <= 0) {
     game.gameOver = true;
+    stopBossMusic();
     updateBestScore(game);
     updateUI(ui, game);
     ui.message.textContent = `Game Over - Final Score: ${game.score}. Press RESTART.`;
@@ -321,6 +327,7 @@ export function damageBase(context, amount) {
 
   if (game.baseHealth <= 0) {
     game.gameOver = true;
+    stopBossMusic();
     updateBestScore(game);
     updateUI(ui, game);
     ui.message.textContent = `Base destroyed - Final Score: ${game.score}. Press RESTART.`;

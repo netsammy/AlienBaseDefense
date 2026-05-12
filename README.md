@@ -93,6 +93,11 @@ android/app/build/outputs/bundle/release/app-release.aab
 - Stage select cities: Lahore, Karachi, Islamabad, and Peshawar themed placeholder arenas
 - Imported May 12 GLB props now appear in city arenas, including gates, containers, barricades, signs, stalls, and sandbags
 - Core combat GLBs preload at launch; city prop GLBs lazy-load per selected stage for faster startup
+- Graphics quality presets: Low, Medium, and High adjust render scale, fog, and effect density for Android/desktop performance
+- Loading screen while combat models initialize
+- Polished main menu status cards and graphics selector
+- Boss-wave warning presentation with boss health bar and warning/music tones
+- Rifle upgrades now visibly scale muzzle flash, tracer size, and impact effects
 - Persistent coin save and permanent upgrade shop
 - Starter base-defense towers: plasma turret and slow-field tower
 - Visible tower range rings and softer tower damage so defenses support the player without dominating early waves
