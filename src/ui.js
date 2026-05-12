@@ -171,7 +171,6 @@ function getAlienMapColor(variant) {
   if (variant === "boss") return "rgba(255, 66, 42, 0.98)";
   if (variant === "brute") return "rgba(200, 255, 76, 0.96)";
   if (variant === "runner") return "rgba(66, 245, 255, 0.96)";
-  if (variant === "mutant") return "rgba(128, 255, 210, 0.96)";
   return "rgba(92, 255, 115, 0.96)";
 }
 

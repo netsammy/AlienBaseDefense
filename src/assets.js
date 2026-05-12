@@ -2,9 +2,8 @@ import * as BABYLON from "@babylonjs/core";
 import "@babylonjs/core/Loading/sceneLoader";
 import "@babylonjs/loaders/glTF";
 
-const ASSET_PATHS = {
+export const ASSET_PATHS = {
   alien: "/assets/models/alien_enemy.glb",
-  animatedAlien: "/assets/models/alien_withanimations_webp.glb",
   rifle: "/assets/models/plasma_rifle.glb",
   arena: "/assets/models/arena_map.glb",
   alienGruntGreen: "/assets/models/alien_grunt_green.glb",
@@ -24,11 +23,33 @@ const ASSET_PATHS = {
   marketStallCrates: "/assets/models/market_stall_crates.glb"
 };
 
-export async function prepareAssetPlaceholders(scene) {
+export const CORE_ASSET_KEYS = [
+  "alien",
+  "rifle",
+  "alienGruntGreen",
+  "alienRunnerPurple",
+  "alienBruteArmored",
+  "alienBossHorned",
+  "plasmaCannon"
+];
+
+export async function prepareAssetPlaceholders(scene, keys = Object.keys(ASSET_PATHS)) {
   const assets = {};
-  for (const [name, path] of Object.entries(ASSET_PATHS)) {
-    assets[name] = await tryLoadModel(scene, path);
+  for (const key of keys) {
+    assets[key] = await loadModelAsset(scene, assets, key);
   }
+  return assets;
+}
+
+export async function loadModelAsset(scene, assets, key) {
+  if (Object.prototype.hasOwnProperty.call(assets, key)) return assets[key];
+  const path = ASSET_PATHS[key];
+  assets[key] = path ? await tryLoadModel(scene, path) : null;
+  return assets[key];
+}
+
+export async function loadModelAssets(scene, assets, keys) {
+  await Promise.all([...new Set(keys)].map(key => loadModelAsset(scene, assets, key)));
   return assets;
 }
 
@@ -83,64 +104,6 @@ export function cloneLoadedAsset(asset, name, options = {}) {
   applyCloneOptions(clone, options);
 
   return clone;
-}
-
-export function cloneAnimatedAsset(asset, name, options = {}) {
-  if (asset?.container) {
-    const entries = asset.container.instantiateModelsToScene(sourceName => `${name}_${sourceName}`, false);
-    const root = new BABYLON.TransformNode(name, asset.root.getScene());
-    entries.rootNodes.forEach(node => {
-      node.parent = root;
-      setNodeTreeEnabled(node, true);
-    });
-
-    root.getChildMeshes(false).forEach(mesh => {
-      mesh.setEnabled(true);
-      mesh.isPickable = options.isPickable ?? true;
-      if (options.metadata) mesh.metadata = { ...options.metadata };
-    });
-
-    applyCloneOptions(root, options);
-    const targetMap = buildCloneTargetMap(root, entries.skeletons || [], name);
-    const animationGroups = asset.animationGroups
-      .map(group => group.clone(`${name}_${group.name}`, target => targetMap.get(target?.name) || null))
-      .filter(Boolean);
-    animationGroups.forEach(group => group.stop());
-    return { root, animationGroups };
-  }
-
-  const clone = cloneLoadedAsset(asset, name, options);
-  if (!clone || !asset?.animationGroups?.length) return { root: clone, animationGroups: [] };
-
-  const sourceNodes = getAssetRoot(asset).getDescendants(false);
-  const cloneNodes = clone.getDescendants(false);
-  const cloneByName = new Map(cloneNodes.map(node => [node.name, node]));
-  const sourceNames = new Set(sourceNodes.map(node => node.name));
-
-  const animationGroups = asset.animationGroups
-    .map(group => group.clone(`${name}_${group.name}`, target => {
-      if (!target?.name || !sourceNames.has(target.name)) return null;
-      return cloneByName.get(target.name) || null;
-    }))
-    .filter(Boolean);
-
-  animationGroups.forEach(group => group.stop());
-  return { root: clone, animationGroups };
-}
-
-function buildCloneTargetMap(root, skeletons, prefix) {
-  const targetMap = new Map();
-  const addTarget = target => {
-    if (!target?.name) return;
-    targetMap.set(target.name, target);
-    if (target.name.startsWith(`${prefix}_`)) {
-      targetMap.set(target.name.slice(prefix.length + 1), target);
-    }
-  };
-
-  root.getDescendants(false).forEach(addTarget);
-  skeletons.forEach(skeleton => skeleton.bones?.forEach(addTarget));
-  return targetMap;
 }
 
 function applyCloneOptions(root, options) {

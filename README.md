@@ -16,6 +16,14 @@ npm run build
 npm run preview
 ```
 
+## Store Preparation Status
+
+- PWA metadata is in place with `public/manifest.webmanifest`, `public/icon.svg`, and a production service worker.
+- Startup now preloads only core combat GLBs first; city/stage prop GLBs lazy-load when their stage is selected.
+- Android packaging is not created yet. Next step: add Capacitor, generate an Android project, build a signed `.aab`, and test on real devices.
+- Windows Store packaging is not created yet. Next step: package the PWA as MSIX and run the Windows App Certification Kit.
+- Store art still needed: PNG icons, feature graphic, screenshots, trailer/key art, privacy policy page, and age-rating answers.
+
 ## Controls
 
 - W/A/S/D = move
@@ -39,7 +47,6 @@ npm run preview
 - Alien radar map showing base zone, player heading, and alien positions
 - Alien variants: grunt, runner, brute, and boss waves
 - New static GLB alien variants wired into gameplay: green grunt, purple runner, armored brute, and horned boss
-- Animated mutant alien support via `alien_withanimations_webp.glb` with idle/run/death animation hooks
 - Alien Test Lab from the main menu to preview imported alien, weapon, and city prop GLBs
 - Quick-kill combo score bonuses
 - Optional `alien_enemy.glb` enemy model loading with primitive fallback
@@ -57,6 +64,7 @@ npm run preview
 - Lahore-themed first arena props with truck-art base panels, food cart, and chai stall placeholders
 - Stage select cities: Lahore, Karachi, Islamabad, and Peshawar themed placeholder arenas
 - Imported May 12 GLB props now appear in city arenas, including gates, containers, barricades, signs, stalls, and sandbags
+- Core combat GLBs preload at launch; city prop GLBs lazy-load per selected stage for faster startup
 - Persistent coin save and permanent upgrade shop
 - Starter base-defense towers: plasma turret and slow-field tower
 - Visible tower range rings and softer tower damage so defenses support the player without dominating early waves
@@ -64,16 +72,16 @@ npm run preview
 
 ## Alien Wave Schedule
 
-- Stage 1, Rookie, waves 1-3: green grunts are the main threat; purple runners start appearing from wave 2. The animated mutant opens the first wave when available.
+- Stage 1, Rookie, waves 1-3: green grunts are the main threat; purple runners start appearing from wave 2.
 - Stage 2, Soldier, waves 4-6: every wave includes a stronger special threat mix, with runners and armored brutes pushing the base.
-- Stage 3, Veteran, waves 7-10: forced runner/brute/mutant pressure plus heavier random mixes.
+- Stage 3, Veteran, waves 7-10: forced runner/brute pressure plus heavier random mixes.
 - Stage 4, Nightmare, waves 11+: all alien types can appear, with extra brute pressure and closer spawn ranges.
 - Boss waves: every 5th wave starts with the horned boss alien.
 - Wave timing: each wave shows `3, 2, 1`, then aliens spawn after `Fight!`.
 
 ## GLB Asset Status
 
-- Required active GLBs are present for current gameplay: green grunt, purple runner, armored brute, horned boss, animated mutant webp, plasma cannon, and city props.
+- Required active GLBs are present for current gameplay: green grunt, purple runner, armored brute, horned boss, plasma cannon, and city props.
 - Optional missing GLB: `arena_map.glb`. The game safely ignores this and uses the current procedural arena plus city props.
 
 ## Roadmap

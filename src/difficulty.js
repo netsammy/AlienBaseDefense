@@ -33,25 +33,25 @@ export const STAGE_THREAT_PLANS = {
     name: "Rookie",
     waves: "1-3",
     briefing: "Recon wave: mostly green grunts, with purple runners starting from wave 2.",
-    weights: { grunt: 66, runner: 24, mutant: 10, brute: 0 }
+    weights: { grunt: 70, runner: 30, brute: 0 }
   },
   2: {
     name: "Soldier",
     waves: "4-6",
     briefing: "Fast assault: runners become common and armored brutes start pushing the base.",
-    weights: { grunt: 34, runner: 34, mutant: 16, brute: 16 }
+    weights: { grunt: 36, runner: 40, brute: 24 }
   },
   3: {
     name: "Veteran",
     waves: "7-10",
-    briefing: "Heavy assault: brutes and mutants pressure the base while runners flank.",
-    weights: { grunt: 22, runner: 28, mutant: 22, brute: 28 }
+    briefing: "Heavy assault: armored brutes pressure the base while runners flank.",
+    weights: { grunt: 24, runner: 34, brute: 42 }
   },
   4: {
     name: "Nightmare",
     waves: "11+",
     briefing: "Full invasion: every alien type can appear, with heavier brute pressure.",
-    weights: { grunt: 16, runner: 28, mutant: 25, brute: 31 }
+    weights: { grunt: 18, runner: 34, brute: 48 }
   }
 };
 

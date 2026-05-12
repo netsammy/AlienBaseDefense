@@ -4,13 +4,6 @@ import "@babylonjs/loaders/glTF";
 import { fitModelToHeight, fitModelToLargestAxis } from "./assets.js";
 
 const PREVIEW_ALIENS = {
-  mutant: {
-    label: "Animated Mutant",
-    path: "/assets/models/alien_withanimations_webp.glb",
-    height: 3.2,
-    cameraRadius: 6.4,
-    fallbackColor: new BABYLON.Color3(0.08, 0.11, 0.13)
-  },
   grunt: {
     label: "Green Grunt",
     path: "/assets/models/alien_grunt_green.glb",
@@ -137,7 +130,7 @@ export function setupAlienGallery(context) {
   ui.alienGalleryButton.addEventListener("click", () => {
     ui.alienGalleryOverlay.style.display = "flex";
     ui.startOverlay.style.display = "none";
-    gallery.open(getSelectedType(ui) || "mutant");
+    gallery.open(getSelectedType(ui) || "grunt");
   });
 
   ui.alienGalleryClose?.addEventListener("click", () => {
@@ -206,7 +199,7 @@ function createGalleryPreview(canvas) {
   const assetCache = new Map();
   let activeRoot = null;
   let activeAnimations = [];
-  let activeType = "mutant";
+  let activeType = "grunt";
   let running = false;
 
   scene.onBeforeRenderObservable.add(() => {
@@ -239,7 +232,7 @@ function createGalleryPreview(canvas) {
         activeRoot = null;
       }
 
-      const config = PREVIEW_ALIENS[type] || PREVIEW_ALIENS.mutant;
+      const config = PREVIEW_ALIENS[type] || PREVIEW_ALIENS.grunt;
       const frameHeight = config.height || config.targetSize || 3;
       camera.radius = config.cameraRadius;
       camera.target = new BABYLON.Vector3(0, frameHeight * 0.42, 0);
@@ -322,7 +315,7 @@ function createFallbackAlien(scene, type, config) {
   const root = new BABYLON.TransformNode(`PreviewFallback_${type}`, scene);
   const material = new BABYLON.StandardMaterial(`PreviewFallbackMat_${type}`, scene);
   material.diffuseColor = config.fallbackColor;
-  material.emissiveColor = config.fallbackColor.scale(type === "mutant" ? 0.12 : 0.08);
+  material.emissiveColor = config.fallbackColor.scale(0.08);
   material.specularColor = new BABYLON.Color3(0.25, 0.35, 0.36);
 
   const body = BABYLON.MeshBuilder.CreateCapsule(`PreviewFallbackBody_${type}`, {

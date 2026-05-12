@@ -6,7 +6,7 @@ import { applyMobileMovement, createPlayerCamera, keepPlayerInsideArena, resetPl
 import { clearAliens, spawnWave, updateAliens } from "./aliens.js";
 import { clearPickups, updatePickups } from "./pickups.js";
 import { loadBestScore } from "./highScore.js";
-import { cloneLoadedAsset, fitModelToLargestAxis, prepareAssetPlaceholders } from "./assets.js";
+import { CORE_ASSET_KEYS, cloneLoadedAsset, fitModelToLargestAxis, loadModelAssets } from "./assets.js";
 import { updateBaseShieldFeedback } from "./effects.js";
 import { createStarterTowers, updateTowers } from "./towers.js";
 import { loadSave, saveGame } from "./saveSystem.js";
@@ -130,6 +130,7 @@ function refreshStageTheme(context) {
   clearStageTheme(context);
   const { scene, game } = context;
   const palette = getStagePalette(game.selectedStage);
+  const selectedStage = game.selectedStage;
 
   const accentMat = new BABYLON.StandardMaterial(`StageAccent_${game.selectedStage}`, scene);
   accentMat.diffuseColor = palette.accent;
@@ -166,6 +167,21 @@ function refreshStageTheme(context) {
     box.material = prop.material === "secondary" ? secondaryMat : prop.material === "sign" ? signMat : accentMat;
     context.stageThemeMeshes.push(box);
   });
+
+  const missingAssetKeys = palette.props
+    .map(prop => prop.assetKey)
+    .filter(Boolean)
+    .filter(assetKey => !Object.prototype.hasOwnProperty.call(context.loadedAssets, assetKey));
+
+  if (missingAssetKeys.length > 0) {
+    const loadToken = Symbol(selectedStage);
+    context.stageThemeLoadToken = loadToken;
+    loadModelAssets(scene, context.loadedAssets, missingAssetKeys).then(() => {
+      if (context.stageThemeLoadToken === loadToken && game.selectedStage === selectedStage) {
+        refreshStageTheme(context);
+      }
+    });
+  }
 }
 
 function addStageAssetProp(context, prop) {
@@ -377,6 +393,7 @@ export function createGameScene({ canvas, engine, ui }) {
     muzzle,
     loadedAssets: {},
     assetsReady: Promise.resolve(),
+    stageThemeLoadToken: null,
     stageThemeMeshes: [],
     basePulseUntil: 0,
     startNextWave: null,
@@ -389,8 +406,7 @@ export function createGameScene({ canvas, engine, ui }) {
   setupStageSelect(context);
   refreshStageTheme(context);
 
-  context.assetsReady = prepareAssetPlaceholders(scene).then(assets => {
-    context.loadedAssets = assets;
+  context.assetsReady = loadModelAssets(scene, context.loadedAssets, CORE_ASSET_KEYS).then(assets => {
     attachRifleModel(context);
     refreshStageTheme(context);
     return assets;

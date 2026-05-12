@@ -41,4 +41,4 @@ These files had identical SHA-256 hashes to imported files and were not copied a
 - All imported files are static GLBs with no animation clips.
 - Each imported GLB uses a small mesh count but high vertex count, roughly 84k-95k indices per model.
 - Several models should be optimized before mobile/Android builds.
-- The unused original `alien_withanimations.glb` was removed from `public/assets/models`; the game uses `alien_withanimations_webp.glb`.
+- The old animated alien GLBs were removed from active gameplay assets; current aliens use the static imported GLBs.

@@ -5,14 +5,13 @@ import { createAlienExplosion } from "./effects.js";
 import { createAmmoPack, createHealthPack } from "./pickups.js";
 import { updateBestScore } from "./highScore.js";
 import { playSound } from "./sound.js";
-import { cloneAnimatedAsset, cloneLoadedAsset, fitModelToHeight, getModelBounds } from "./assets.js";
+import { cloneLoadedAsset, fitModelToHeight, getModelBounds } from "./assets.js";
 import { showRewardChoices } from "./rewards.js";
 import { pulseBaseDamage } from "./effects.js";
 import { awardCoins } from "./shop.js";
 
 const ALIEN_VARIANTS = [
   { type: "grunt", score: 100, health: 0, speed: 1, damage: 1, scale: 1, color: new BABYLON.Color3(0.18, 0.82, 0.22), height: 3.15, assetKey: "alienGruntGreen" },
-  { type: "mutant", score: 145, health: 0, speed: 1.35, damage: 0.9, scale: 1, color: new BABYLON.Color3(0.2, 0.95, 0.8), height: 3.2, animated: true },
   { type: "runner", score: 125, health: -1, speed: 1.45, damage: 0.75, scale: 0.82, color: new BABYLON.Color3(0.2, 0.95, 0.8), height: 2.65, assetKey: "alienRunnerPurple" },
   { type: "brute", score: 175, health: 2, speed: 0.72, damage: 1.45, scale: 1.28, color: new BABYLON.Color3(0.62, 0.95, 0.18), height: 3.85, assetKey: "alienBruteArmored" },
   { type: "boss", score: 750, health: 9, speed: 0.58, damage: 2.2, scale: 1.8, color: new BABYLON.Color3(1, 0.18, 0.08), height: 5.25, assetKey: "alienBossHorned" }
@@ -37,18 +36,8 @@ export function createAlien(context, position, difficulty, variant = ALIEN_VARIA
   variantMat.diffuseColor = variant.color;
   variantMat.emissiveColor = variant.color.scale(0.38);
 
-  const modelAsset = variant.animated
-    ? loadedAssets.animatedAlien
-    : loadedAssets[variant.assetKey] || loadedAssets.alien;
-  const clonedModel = variant.animated
-    ? cloneAnimatedAsset(modelAsset, `AlienModel_${variant.type}`, {
-      parent: root,
-      position: new BABYLON.Vector3(0, 0, 0),
-      rotation: new BABYLON.Vector3(0, 0, 0),
-      scaling: new BABYLON.Vector3(1, 1, 1),
-      metadata: { alienRoot: root }
-    })
-    : { root: cloneLoadedAsset(modelAsset, `AlienModel_${variant.type}`, {
+  const modelAsset = loadedAssets[variant.assetKey] || loadedAssets.alien;
+  const clonedModel = { root: cloneLoadedAsset(modelAsset, `AlienModel_${variant.type}`, {
     parent: root,
     position: new BABYLON.Vector3(0, 0, 0),
     rotation: new BABYLON.Vector3(0, 0, 0),
@@ -189,9 +178,8 @@ function getSpawnPosition(game, difficulty, index) {
 }
 
 function pickWaveVariant(context, difficulty, index) {
-  const { game, loadedAssets } = context;
-  if (index === 0 && game.wave % 5 === 0) return ALIEN_VARIANTS[4];
-  if (index === 0 && loadedAssets.animatedAlien) return ALIEN_VARIANTS[1];
+  const { game } = context;
+  if (index === 0 && game.wave % 5 === 0) return ALIEN_VARIANT_BY_TYPE.boss;
   return pickAlienVariant(difficulty.stage);
 }
 
@@ -199,7 +187,7 @@ function getForcedWaveVariant(game, difficulty, index) {
   if (index === 0 && game.wave % 5 === 0) return ALIEN_VARIANT_BY_TYPE.boss;
   if (index === 1 && difficulty.stage >= 1 && game.wave >= 2) return ALIEN_VARIANT_BY_TYPE.runner;
   if (index === 2 && difficulty.stage >= 2) return ALIEN_VARIANT_BY_TYPE.brute;
-  if (index === 3 && difficulty.stage >= 3) return ALIEN_VARIANT_BY_TYPE.mutant;
+  if (index === 3 && difficulty.stage >= 3) return ALIEN_VARIANT_BY_TYPE.runner;
   if (index === 4 && difficulty.stage >= 4) return ALIEN_VARIANT_BY_TYPE.brute;
   return null;
 }
