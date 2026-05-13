@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1366" height="768" viewBox="0 0 1366 768">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="42%" r="70%">
+      <stop offset="0%" stop-color="#0b3750"/>
+      <stop offset="55%" stop-color="#071525"/>
+      <stop offset="100%" stop-color="#03060a"/>
+    </radialGradient>
+    <linearGradient id="beam" x1="0" x2="1">
+      <stop offset="0%" stop-color="#00d6ff"/>
+      <stop offset="100%" stop-color="#ffe66d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1366" height="768" fill="url(#sky)"/>
+  <circle cx="1100" cy="130" r="66" fill="#d8f8ff" opacity="0.8"/>
+  <g opacity="0.65" fill="#bff6ff">
+    <circle cx="144" cy="96" r="2"/>
+    <circle cx="270" cy="170" r="1.8"/>
+    <circle cx="925" cy="92" r="2.2"/>
+    <circle cx="1214" cy="230" r="1.7"/>
+    <circle cx="650" cy="122" r="1.8"/>
+  </g>
+  <ellipse cx="683" cy="690" rx="590" ry="92" fill="#071018"/>
+  <circle cx="683" cy="520" r="170" fill="none" stroke="#00d6ff" stroke-width="14" opacity="0.75"/>
+  <circle cx="683" cy="520" r="84" fill="none" stroke="#ff334b" stroke-width="14" opacity="0.85"/>
+  <g transform="translate(633 370)">
+    <path d="M50 0l76 138H-26z" fill="#10202b" stroke="#00d6ff" stroke-width="8"/>
+    <circle cx="50" cy="116" r="38" fill="#00d6ff"/>
+    <circle cx="50" cy="116" r="18" fill="#d8f8ff"/>
+  </g>
+  <g transform="translate(262 454)">
+    <ellipse cx="0" cy="110" rx="48" ry="14" fill="#000" opacity="0.35"/>
+    <path d="M0 0c46 10 76 48 68 100-8 58-42 94-82 88-43-7-66-56-52-111C-54 28-34-8 0 0z" fill="#5cff73"/>
+    <circle cx="-19" cy="55" r="11" fill="#fff"/>
+    <circle cx="22" cy="60" r="11" fill="#fff"/>
+    <circle cx="-17" cy="56" r="5" fill="#111"/>
+    <circle cx="20" cy="61" r="5" fill="#111"/>
+  </g>
+  <g transform="translate(1014 430)">
+    <ellipse cx="0" cy="130" rx="62" ry="18" fill="#000" opacity="0.35"/>
+    <path d="M0 0c60 12 96 62 84 126-12 70-58 112-112 104-54-8-82-70-64-137C-78 30-44-10 0 0z" fill="#ff4230"/>
+    <circle cx="-24" cy="68" r="13" fill="#fff"/>
+    <circle cx="28" cy="74" r="13" fill="#fff"/>
+    <circle cx="-22" cy="70" r="6" fill="#111"/>
+    <circle cx="25" cy="76" r="6" fill="#111"/>
+    <path d="M-44 28l-34-32M42 28l34-32" stroke="#ffe66d" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <path d="M518 462h120" stroke="url(#beam)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M854 440h-118" stroke="url(#beam)" stroke-width="10" stroke-linecap="round"/>
+  <text x="72" y="98" fill="#ffffff" font-family="Arial, sans-serif" font-size="54" font-weight="800">ALIEN BASE DEFENSE</text>
+  <text x="76" y="146" fill="#bff6ff" font-family="Arial, sans-serif" font-size="26">Defend the base. Clear the waves. Upgrade between attacks.</text>
+</svg>
