@@ -1,6 +1,6 @@
 {
-  "name": "Alien Base Defense",
-  "short_name": "Alien Defense",
+  "name": "AlienBaseDefense",
+  "short_name": "AlienDefense",
   "description": "Defend a futuristic base from alien waves in a single-player 3D survival shooter.",
   "start_url": "/AlienBaseDefense/",
   "scope": "/AlienBaseDefense/",

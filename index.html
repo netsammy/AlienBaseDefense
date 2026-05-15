@@ -375,6 +375,7 @@
       left: 50%;
       top: 236px;
       transform: translateX(-50%);
+      z-index: 2;
       border: 1px solid rgba(255, 221, 85, 0.9);
       border-radius: 999px;
       padding: 12px 20px;
@@ -383,12 +384,23 @@
       font-size: 15px;
       font-weight: 900;
       cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
       box-shadow: 0 0 22px rgba(255, 190, 70, 0.35);
     }
 
     #continueButton:disabled {
       cursor: wait;
       opacity: 0.68;
+    }
+
+    body.is-defeat-active #hud {
+      z-index: 80;
+    }
+
+    body.is-defeat-active #renderCanvas,
+    body.is-defeat-active #mobileControls {
+      pointer-events: none;
     }
 
     #damageFlash {
@@ -543,6 +555,40 @@
       color: white;
     }
 
+    .settingsToggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 18px;
+      padding: 12px 14px;
+      border: 1px solid rgba(191, 246, 255, 0.28);
+      border-radius: 8px;
+      color: #cdefff;
+      background: rgba(0, 220, 255, 0.08);
+    }
+
+    .settingsToggle strong {
+      display: block;
+      color: white;
+      font-size: 15px;
+    }
+
+    .settingsToggle span {
+      display: block;
+      margin-top: 3px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .settingsToggle input {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+      accent-color: #00d6ff;
+      cursor: pointer;
+    }
+
     #rewardOverlay {
       position: fixed;
       inset: 0;
@@ -678,6 +724,10 @@
       z-index: 30;
       display: none;
       pointer-events: none;
+    }
+
+    body.show-touch-controls #mobileControls {
+      display: block;
     }
 
     #lookPad {
@@ -1002,7 +1052,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-CbMrSuad.js"></script>
+  <script type="module" crossorigin src="./assets/index-ovONSXih.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-lhHHWwHU.js">
   <link rel="modulepreload" crossorigin href="./assets/babylon-CgJV7XBa.js">
   <link rel="modulepreload" crossorigin href="./assets/vendor-B1LscOEh.js">
@@ -1117,6 +1167,13 @@
         <strong>Sprint</strong><span>RUN button</span>
         <strong>Map</strong><span>Alien radar in the top-right corner</span>
       </div>
+      <label class="settingsToggle">
+        <span>
+          <strong>Show Touch Controls On Windows</strong>
+          <span>Displays the joystick, 360 look pad, FIRE, RUN, and R buttons on desktop too.</span>
+        </span>
+        <input id="touchControlsToggle" type="checkbox" />
+      </label>
       <button id="controlsCloseButton" class="pauseBtn">CLOSE</button>
     </div>
   </div>
