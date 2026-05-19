@@ -39,7 +39,7 @@
       position: fixed;
       inset: 0;
       pointer-events: none;
-      z-index: 40;
+      z-index: 10;
     }
 
     .panel {
@@ -354,9 +354,9 @@
     }
 
     #restartButton {
+      display: none;
       pointer-events: auto;
       position: absolute;
-      z-index: 8;
       right: 18px;
       top: 18px;
       background: linear-gradient(135deg, #ffdd55, #ff7755);
@@ -366,8 +366,6 @@
       padding: 11px 18px;
       font-weight: 900;
       cursor: pointer;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
       box-shadow: 0 0 18px rgba(255, 190, 70, 0.35);
     }
 
@@ -733,28 +731,6 @@
       display: block;
     }
 
-    @media (hover: hover) and (pointer: fine) {
-      body.show-touch-controls #joystick {
-        left: 24px;
-        bottom: 172px;
-      }
-
-      body.show-touch-controls #mobileFireButton {
-        right: 228px;
-        bottom: 28px;
-      }
-
-      body.show-touch-controls #mobileReloadButton {
-        right: 318px;
-        bottom: 112px;
-      }
-
-      body.show-touch-controls #mobileSprintButton {
-        right: 318px;
-        bottom: 28px;
-      }
-    }
-
     #lookPad {
       position: absolute;
       top: 0;
@@ -1077,7 +1053,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-BAvoklul.js"></script>
+  <script type="module" crossorigin src="./assets/index-wS6-tGYK.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-lhHHWwHU.js">
   <link rel="modulepreload" crossorigin href="./assets/babylon-CgJV7XBa.js">
 </head>
