@@ -14,6 +14,13 @@ import { setupShop, refreshShop } from "./shop.js";
 import { setupStageSelect } from "./stages.js";
 import { setupGraphicsQuality } from "./graphics.js";
 import { stopBossMusic } from "./sound.js";
+import { requestPointerLockSafely } from "./pointerLock.js";
+import { showRewardedContinueIfAvailable } from "./adBridge.js";
+
+const FIRST_RUN_ASSET_KEYS = [
+  "plasmaCannon",
+  "alienGruntGreen"
+];
 
 function createMaterials(scene) {
   const ground = new BABYLON.StandardMaterial("GroundMat", scene);
@@ -119,6 +126,7 @@ function createEnvironment(scene, game, materials) {
   }
 
   createOuterArenaDetails(scene, materials);
+  createDistantSkyline(scene);
 
   return { baseCore, beacon };
 }
@@ -186,6 +194,12 @@ function refreshStageTheme(context) {
       }
     });
   }
+}
+
+function getStageAssetKeys(stageId) {
+  return getStagePalette(stageId).props
+    .map(prop => prop.assetKey)
+    .filter(Boolean);
 }
 
 function addStageAssetProp(context, prop) {
@@ -435,6 +449,53 @@ function createOuterArenaDetails(scene, materials) {
   }
 }
 
+function createDistantSkyline(scene) {
+  const skylineMat = new BABYLON.StandardMaterial("DistantSkylineMat", scene);
+  skylineMat.diffuseColor = new BABYLON.Color3(0.03, 0.08, 0.12);
+  skylineMat.emissiveColor = new BABYLON.Color3(0.01, 0.035, 0.055);
+  skylineMat.specularColor = BABYLON.Color3.Black();
+
+  const lightMat = new BABYLON.StandardMaterial("SkylineWindowMat", scene);
+  lightMat.diffuseColor = new BABYLON.Color3(0.9, 0.72, 0.28);
+  lightMat.emissiveColor = new BABYLON.Color3(0.55, 0.34, 0.08);
+  lightMat.specularColor = BABYLON.Color3.Black();
+
+  const buildingCount = 30;
+  for (let i = 0; i < buildingCount; i++) {
+    const angle = (i / buildingCount) * Math.PI * 2;
+    const radius = 46 + (i % 3) * 2.2;
+    const height = 3.5 + ((i * 7) % 9) * 0.7;
+    const width = 2.1 + (i % 4) * 0.55;
+    const depth = 1.5 + (i % 3) * 0.45;
+    const building = BABYLON.MeshBuilder.CreateBox("DistantBuilding", { width, height, depth }, scene);
+
+    building.position = new BABYLON.Vector3(
+      Math.cos(angle) * radius,
+      height * 0.5 - 0.05,
+      Math.sin(angle) * radius
+    );
+    building.rotation.y = -angle + Math.PI / 2;
+    building.material = skylineMat;
+    building.isPickable = false;
+
+    if (i % 2 === 0) {
+      const window = BABYLON.MeshBuilder.CreateBox("DistantWindow", {
+        width: width * 0.52,
+        height: 0.12,
+        depth: 0.035
+      }, scene);
+      window.position = building.position.add(new BABYLON.Vector3(
+        Math.cos(angle) * -0.78,
+        height * 0.18,
+        Math.sin(angle) * -0.78
+      ));
+      window.rotation.y = building.rotation.y;
+      window.material = lightMat;
+      window.isPickable = false;
+    }
+  }
+}
+
 function createGun(scene, camera, materials) {
   const gunRoot = new BABYLON.TransformNode("GunRoot", scene);
   gunRoot.parent = camera;
@@ -465,6 +526,8 @@ function createGun(scene, camera, materials) {
 }
 
 function attachRifleModel(context) {
+  context.rifleModel?.dispose();
+  context.rifleModel = null;
   const rifleAsset = context.loadedAssets.plasmaCannon || context.loadedAssets.rifle;
   const rifle = cloneLoadedAsset(rifleAsset, "PlasmaRifleModel", {
     parent: context.gunRoot,
@@ -475,6 +538,7 @@ function attachRifleModel(context) {
   });
 
   if (!rifle) return;
+  context.rifleModel = rifle;
   fitModelToLargestAxis(rifle, 0.62);
   rifle.position.x += 0.2;
   rifle.position.y -= 0.12;
@@ -508,6 +572,7 @@ export function createGameScene({ canvas, engine, ui }) {
     baseCore,
     beacon,
     gunRoot,
+    rifleModel: null,
     muzzle,
     loadedAssets: {},
     assetsReady: Promise.resolve(),
@@ -516,48 +581,77 @@ export function createGameScene({ canvas, engine, ui }) {
     stageThemeMeshes: [],
     basePulseUntil: 0,
     startNextWave: null,
-    resetGame: null
+    resetGame: null,
+    continueAfterReward: null
   };
 
   context.startNextWave = () => spawnWave(context);
   context.refreshStageTheme = () => refreshStageTheme(context);
+  context.continueAfterReward = () => continueAfterReward(context);
   setupShop(context);
   setupStageSelect(context);
   setupGraphicsQuality(context);
   refreshStageTheme(context);
 
-  context.assetsReady = loadModelAssets(scene, context.loadedAssets, CORE_ASSET_KEYS).then(assets => {
+  if (ui.loadingOverlay) ui.loadingOverlay.style.display = "none";
+  context.assetsReady = Promise.resolve(context.loadedAssets);
+
+  async function preloadRunAssets() {
+    const runAssetKeys = [...new Set([
+      ...CORE_ASSET_KEYS,
+      ...BACKGROUND_ASSET_KEYS,
+      ...getStageAssetKeys(game.selectedStage)
+    ])];
+    const firstRunAssetKeys = FIRST_RUN_ASSET_KEYS.filter(key => runAssetKeys.includes(key));
+    const backgroundAssetKeys = runAssetKeys.filter(key => !firstRunAssetKeys.includes(key));
+
+    if (ui.loadingOverlay) ui.loadingOverlay.style.display = "flex";
+    if (ui.loadingText) ui.loadingText.textContent = "Loading essential game models...";
+
+    await loadModelAssets(scene, context.loadedAssets, firstRunAssetKeys, {
+      onProgress: ({ completed, total }) => {
+        if (ui.loadingText) ui.loadingText.textContent = `Loading game models ${completed} / ${total}...`;
+      }
+    });
+
     attachRifleModel(context);
     context.stageAssetLoadingEnabled = true;
     refreshStageTheme(context);
+
     if (ui.loadingOverlay) ui.loadingOverlay.style.display = "none";
-    loadModelAssets(scene, context.loadedAssets, BACKGROUND_ASSET_KEYS).then(() => {
+
+    loadModelAssets(scene, context.loadedAssets, backgroundAssetKeys).then(() => {
+      attachRifleModel(context);
       refreshStageTheme(context);
     });
-    return assets;
-  });
+  }
 
   context.resetGame = async () => {
     clearTimeout(game.waveTimer);
     stopBossMusic();
     clearAliens(game);
     clearPickups(game);
-    resetGameState();
     resetPlayer(camera);
+    document.body.classList.remove("is-defeat-active");
+    document.body.classList.remove("is-game-over");
     ui.message.textContent = "Loading alien models...";
+    ui.startOverlay.style.display = "none";
+    ui.pauseOverlay.style.display = "none";
+    ui.controlsOverlay.style.display = "none";
+    ui.rewardOverlay.style.display = "none";
+    if (ui.continueButton) ui.continueButton.style.display = "none";
+    await preloadRunAssets();
+    resetGameState();
     createStarterTowers(context);
     saveGame(game);
     refreshShop(context);
-    ui.pauseOverlay.style.display = "none";
-    ui.rewardOverlay.style.display = "none";
-    ui.startOverlay.style.display = "none";
-    canvas.requestPointerLock?.();
-    await context.assetsReady;
+    requestPointerLockSafely(canvas);
     spawnWave(context);
     updateUI(ui, game);
   };
 
   scene.onBeforeRenderObservable.add(() => {
+    drawAlienMap(ui, game, camera);
     if (game.paused) return;
     applyMobileMovement(camera, game);
     keepPlayerInsideArena(camera, game, ui);
@@ -567,11 +661,57 @@ export function createGameScene({ canvas, engine, ui }) {
     beacon.rotation.x = Math.sin(performance.now() / 500) * 0.08;
     updateBaseShieldFeedback(context);
     updateAliens(context);
-    drawAlienMap(ui, game, camera);
     updateTowers(context);
     updatePickups(context);
   });
 
   updateUI(ui, game);
   return context;
+}
+
+async function continueAfterReward(context) {
+  const { canvas, camera, game, ui } = context;
+  if (!game.gameOver || game.continueUsed || game.continueInProgress) return;
+
+  game.continueInProgress = true;
+  ui.continueButton.disabled = true;
+  ui.continueButton.textContent = "LOADING AD...";
+  ui.message.textContent = "Loading rewarded ad...";
+
+  const earnedReward = await showRewardedContinueIfAvailable();
+  if (!earnedReward) {
+    game.continueInProgress = false;
+    ui.continueButton.disabled = false;
+    ui.continueButton.textContent = "WATCH AD TO CONTINUE";
+    ui.message.textContent = "Reward ad is not ready yet. Try again in a moment or press RESTART.";
+    return;
+  }
+
+  clearTimeout(game.waveTimer);
+  stopBossMusic();
+  clearAliens(game);
+  clearPickups(game);
+  resetPlayer(camera);
+
+  game.continueUsed = true;
+  game.continueInProgress = false;
+  game.gameOver = false;
+  game.paused = false;
+  game.health = 70;
+  game.baseHealth = Math.max(game.baseHealth, Math.ceil(game.maxBaseHealth * 0.6));
+  game.ammo = game.maxAmmo;
+  game.reloading = false;
+  game.playerInvincibleUntil = performance.now() + 4200;
+  game.mobileMove.x = 0;
+  game.mobileMove.y = 0;
+
+  ui.continueButton.style.display = "none";
+  ui.continueButton.disabled = false;
+  ui.continueButton.textContent = "WATCH AD TO CONTINUE";
+  document.body.classList.remove("is-defeat-active");
+  document.body.classList.remove("is-game-over");
+  ui.message.textContent = "Continue granted. Restarting this wave with a safety shield.";
+  requestPointerLockSafely(canvas);
+  updateUI(ui, game);
+  spawnWave(context);
 }

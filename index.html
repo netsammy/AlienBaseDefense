@@ -9,8 +9,10 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Alien Defense" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <title>Alien Base Defense</title>
   <style>
     html, body {
@@ -146,7 +148,7 @@
       bottom: 18px;
       font-size: 14px;
       color: #cdefff;
-      max-width: 350px;
+      max-width: 455px;
       line-height: 1.45;
     }
 
@@ -352,18 +354,68 @@
     }
 
     #restartButton {
+      display: none;
       pointer-events: auto;
       position: absolute;
-      right: 18px;
-      top: 18px;
+      left: 50%;
+      top: 236px;
+      transform: translateX(-50%);
+      z-index: 3;
       background: linear-gradient(135deg, #ffdd55, #ff7755);
       color: #120800;
       border: none;
       border-radius: 999px;
-      padding: 11px 18px;
+      padding: 13px 28px;
       font-weight: 900;
       cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
       box-shadow: 0 0 18px rgba(255, 190, 70, 0.35);
+    }
+
+    #continueButton {
+      display: none;
+      pointer-events: auto;
+      position: absolute;
+      left: 50%;
+      top: 236px;
+      transform: translateX(-50%);
+      z-index: 2;
+      border: 1px solid rgba(255, 221, 85, 0.9);
+      border-radius: 999px;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #ffe36a, #ff8d55);
+      color: #120800;
+      font-size: 15px;
+      font-weight: 900;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 0 22px rgba(255, 190, 70, 0.35);
+    }
+
+    #continueButton:disabled {
+      cursor: wait;
+      opacity: 0.68;
+    }
+
+    body.is-defeat-active #hud {
+      z-index: 80;
+    }
+
+    body.is-game-over #hud {
+      z-index: 80;
+    }
+
+    body.is-game-over #restartButton {
+      display: block;
+    }
+
+    body.is-defeat-active #renderCanvas,
+    body.is-defeat-active #mobileControls,
+    body.is-game-over #renderCanvas,
+    body.is-game-over #mobileControls {
+      pointer-events: none;
     }
 
     #damageFlash {
@@ -375,11 +427,43 @@
       transition: background 0.12s ease;
     }
 
+    #compatOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, rgba(160, 30, 30, 0.2), rgba(0, 0, 0, 0.94));
+      color: white;
+      text-align: center;
+      padding: 24px;
+    }
+
+    #compatCard {
+      width: min(520px, calc(100vw - 32px));
+      border: 1px solid rgba(255, 110, 90, 0.7);
+      border-radius: 14px;
+      padding: 24px;
+      background: rgba(24, 8, 8, 0.94);
+      box-shadow: 0 0 44px rgba(255, 70, 55, 0.2);
+    }
+
+    #compatCard h2 {
+      margin: 0 0 10px;
+    }
+
+    #compatCard p {
+      color: #ffd6ce;
+      line-height: 1.5;
+      margin: 0;
+    }
+
     #loadingOverlay {
       position: fixed;
       inset: 0;
       z-index: 90;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       background: radial-gradient(circle at center, rgba(0, 135, 160, 0.18), rgba(0, 0, 0, 0.94));
@@ -439,76 +523,85 @@
       text-align: center;
     }
 
-    #alienGalleryOverlay {
+    #controlsOverlay {
       position: fixed;
       inset: 0;
-      z-index: 70;
+      z-index: 65;
       display: none;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.82);
+      background: rgba(0, 0, 0, 0.74);
       color: white;
+      text-align: left;
       pointer-events: auto;
     }
 
-    #alienGallery {
-      width: min(980px, calc(100vw - 28px));
-      height: min(680px, calc(100vh - 28px));
+    #controlsMenu {
+      width: min(660px, calc(100vw - 32px));
       background: rgba(0, 12, 24, 0.96);
       border: 1px solid rgba(0, 220, 255, 0.62);
       border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 0 40px rgba(0, 220, 255, 0.22);
+    }
+
+    #controlsMenu h2 {
+      margin: 0 0 16px;
+      text-align: center;
+    }
+
+    .controlSectionTitle {
+      margin: 14px 0 9px;
+      color: #ffe66d;
+      font-weight: 900;
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    .controlGrid {
       display: grid;
-      grid-template-columns: 220px 1fr;
-      overflow: hidden;
-      box-shadow: 0 0 48px rgba(0, 220, 255, 0.24);
+      grid-template-columns: 150px 1fr;
+      gap: 10px 14px;
+      color: #cdefff;
+      font-size: 15px;
     }
 
-    #alienGalleryPanel {
-      padding: 18px;
-      border-right: 1px solid rgba(0, 220, 255, 0.3);
-      overflow-y: auto;
-    }
-
-    #alienGalleryPanel h2 {
-      margin: 0 0 12px;
-      font-size: 22px;
-    }
-
-    .alienPreviewBtn {
-      width: 100%;
-      margin-top: 8px;
-      border: 1px solid rgba(191, 246, 255, 0.55);
-      border-radius: 8px;
-      padding: 10px;
-      background: rgba(0, 60, 80, 0.62);
+    .controlGrid strong {
       color: white;
-      cursor: pointer;
-      font-weight: 900;
-      text-align: left;
     }
 
-    .alienPreviewBtn.selected {
-      border-color: #ffe66d;
-      box-shadow: 0 0 16px rgba(255, 230, 109, 0.22);
-    }
-
-    #alienGalleryClose {
-      width: 100%;
+    .settingsToggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
       margin-top: 18px;
-      border: none;
+      padding: 12px 14px;
+      border: 1px solid rgba(191, 246, 255, 0.28);
       border-radius: 8px;
-      padding: 11px;
-      background: #bff6ff;
-      color: #001018;
-      font-weight: 900;
-      cursor: pointer;
+      color: #cdefff;
+      background: rgba(0, 220, 255, 0.08);
     }
 
-    #alienPreviewCanvas {
-      width: 100%;
-      height: 100%;
+    .settingsToggle strong {
       display: block;
-      touch-action: none;
+      color: white;
+      font-size: 15px;
+    }
+
+    .settingsToggle span {
+      display: block;
+      margin-top: 3px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .settingsToggle input {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+      accent-color: #00d6ff;
+      cursor: pointer;
     }
 
     #rewardOverlay {
@@ -648,6 +741,21 @@
       pointer-events: none;
     }
 
+    body.show-touch-controls #mobileControls {
+      display: block;
+    }
+
+    #lookPad {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 34%;
+      z-index: 0;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
     #joystick {
       position: absolute;
       left: 22px;
@@ -659,6 +767,7 @@
       background: rgba(0, 12, 24, 0.36);
       pointer-events: auto;
       touch-action: none;
+      z-index: 2;
     }
 
     #joystickKnob {
@@ -684,6 +793,7 @@
       font-weight: 900;
       pointer-events: auto;
       touch-action: none;
+      z-index: 2;
     }
 
     #mobileFireButton {
@@ -700,6 +810,12 @@
     #mobileSprintButton {
       right: 112px;
       bottom: 44px;
+    }
+
+    #mobileControls:not(.is-gameplay-active) #lookPad,
+    #mobileControls:not(.is-gameplay-active) #joystick,
+    #mobileControls:not(.is-gameplay-active) .mobileAction {
+      pointer-events: none;
     }
 
     @media (hover: none), (pointer: coarse) {
@@ -762,10 +878,33 @@
         border-radius: 999px;
       }
 
-      #alienMapPanel,
+      #continueButton {
+        top: max(116px, calc(env(safe-area-inset-top) + 96px));
+        padding: 10px 16px;
+        font-size: 13px;
+      }
+
       #shopPanel,
       #hintPanel {
         display: none;
+      }
+
+      #alienMapPanel {
+        display: block;
+        top: max(58px, calc(env(safe-area-inset-top) + 50px));
+        right: max(10px, env(safe-area-inset-right));
+        left: auto;
+        width: 86px;
+        padding: 5px;
+      }
+
+      #alienMapPanel h3 {
+        display: none;
+      }
+
+      #alienMapCanvas {
+        width: 82px;
+        height: 82px;
       }
 
       #weaponPanel {
@@ -932,6 +1071,16 @@
 <body>
   <canvas id="renderCanvas"></canvas>
 
+  <div id="compatOverlay">
+    <div id="compatCard">
+      <h2>Graphics Not Available</h2>
+      <p>
+        Alien Base Defense needs WebGL hardware acceleration. Update your graphics driver,
+        enable hardware acceleration, or try another Windows device with WebGL support.
+      </p>
+    </div>
+  </div>
+
   <div id="loadingOverlay">
     <div id="loadingCard">
       <h2>ALIEN BASE DEFENSE</h2>
@@ -963,6 +1112,7 @@
     </div>
 
     <button id="restartButton">RESTART</button>
+    <button id="continueButton">WATCH AD TO CONTINUE</button>
 
     <div id="alienMapPanel" class="panel">
       <h3>ALIEN MAP</h3>
@@ -980,7 +1130,8 @@
 
     <div id="hintPanel" class="panel">
       Stay inside the blue defense zone. Aliens damage the base if they enter the inner red zone.<br />
-      Fire: Left Mouse Click | Move: WASD | Sprint: Shift | Reload: R
+      Windows: WASD move | Mouse look | Left click fire | R reload | Shift run | Space jump | Esc pause<br />
+      Touch: Left joystick move | Right screen drag 360 look | FIRE | RUN | R reload
     </div>
 
     <div id="weaponPanel" class="panel">
@@ -999,33 +1150,42 @@
     <div id="pauseMenu">
       <h2>PAUSED</h2>
       <button id="resumeButton" class="pauseBtn">RESUME</button>
+      <button id="controlsButton" class="pauseBtn">CONTROLS</button>
       <button id="pauseRestartButton" class="pauseBtn">RESTART</button>
       <button id="mainMenuButton" class="pauseBtn">MAIN MENU</button>
     </div>
   </div>
 
-  <div id="alienGalleryOverlay">
-    <div id="alienGallery">
-      <div id="alienGalleryPanel">
-        <h2>ALIEN TEST LAB</h2>
-        <button class="alienPreviewBtn selected" data-alien-preview="grunt">Green Grunt</button>
-        <button class="alienPreviewBtn" data-alien-preview="runner">Purple Runner</button>
-        <button class="alienPreviewBtn" data-alien-preview="brute">Armored Brute</button>
-        <button class="alienPreviewBtn" data-alien-preview="brutePurple">Purple Brute</button>
-        <button class="alienPreviewBtn" data-alien-preview="boss">Horned Boss</button>
-        <button class="alienPreviewBtn" data-alien-preview="plasmaCannon">Plasma Cannon</button>
-        <button class="alienPreviewBtn" data-alien-preview="marketStall">Market Stall</button>
-        <button class="alienPreviewBtn" data-alien-preview="peshawarGate">Peshawar Gate</button>
-        <button class="alienPreviewBtn" data-alien-preview="cityWatchtower">City Watchtower</button>
-        <button class="alienPreviewBtn" data-alien-preview="shippingContainer">Shipping Container</button>
-        <button class="alienPreviewBtn" data-alien-preview="roadBarricade">Road Barricade</button>
-        <button class="alienPreviewBtn" data-alien-preview="shopWorkbench">Shop Workbench</button>
-        <button class="alienPreviewBtn" data-alien-preview="planterBarrier">Planter Barrier</button>
-        <button class="alienPreviewBtn" data-alien-preview="sectorSign">Sector Sign</button>
-        <button class="alienPreviewBtn" data-alien-preview="sandbagWall">Sandbag Wall</button>
-        <button id="alienGalleryClose">CLOSE</button>
+  <div id="controlsOverlay">
+    <div id="controlsMenu">
+      <h2>CONTROLS</h2>
+      <div class="controlSectionTitle">WINDOWS / DESKTOP</div>
+      <div class="controlGrid">
+        <strong>Move</strong><span>WASD</span>
+        <strong>Look / Turn 360</strong><span>Mouse movement</span>
+        <strong>Fire</strong><span>Left Mouse Button</span>
+        <strong>Reload</strong><span>R</span>
+        <strong>Sprint</strong><span>Shift</span>
+        <strong>Jump</strong><span>Space</span>
+        <strong>Pause</strong><span>Esc</span>
       </div>
-      <canvas id="alienPreviewCanvas"></canvas>
+      <div class="controlSectionTitle">ANDROID / TOUCH</div>
+      <div class="controlGrid">
+        <strong>Move</strong><span>Left joystick</span>
+        <strong>Look / Turn 360</strong><span>Drag anywhere on the right side of the screen</span>
+        <strong>Fire</strong><span>FIRE button</span>
+        <strong>Reload</strong><span>R button</span>
+        <strong>Sprint</strong><span>RUN button</span>
+        <strong>Map</strong><span>Alien radar in the top-right corner</span>
+      </div>
+      <label class="settingsToggle">
+        <span>
+          <strong>Show Touch Controls On Windows</strong>
+          <span>Displays the joystick, 360 look pad, FIRE, RUN, and R buttons on desktop too.</span>
+        </span>
+        <input id="touchControlsToggle" type="checkbox" />
+      </label>
+      <button id="controlsCloseButton" class="pauseBtn">CLOSE</button>
     </div>
   </div>
 
@@ -1042,6 +1202,7 @@
   </div>
 
   <div id="mobileControls">
+    <div id="lookPad"></div>
     <div id="joystick">
       <div id="joystickKnob"></div>
     </div>
@@ -1062,7 +1223,7 @@
         Aliens are rushing toward your base. Move inside the defense zone, shoot enemies,
         collect health/ammo, and stop them before they destroy the base shield.
       </p>
-      <p><b>Controls:</b> WASD move, mouse look, left click fire, R reload, Shift sprint, Space jump.</p>
+      <p><b>Controls:</b> Windows uses WASD, mouse look, left click fire, R reload, Shift run, Space jump. Touch uses left joystick, right-screen 360 look, FIRE, RUN, and R buttons.</p>
 
       <div id="stageSelect">
         <button class="stageBtn selected" data-stage-id="lahore-outskirts">LAHORE OUTSKIRTS</button>
@@ -1091,7 +1252,8 @@
       </div>
 
       <div id="menuActions">
-        <button id="alienGalleryButton" class="menuActionBtn">ALIEN TEST LAB</button>
+        <button id="menuControlsButton" class="menuActionBtn">CONTROLS</button>
+        <a class="menuActionBtn" href="privacy.html" target="_blank" rel="noopener">PRIVACY</a>
       </div>
 
       <button id="startButton">START GAME</button>

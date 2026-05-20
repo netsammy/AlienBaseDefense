@@ -1,8 +1,12 @@
 const CACHE_NAME = "alien-base-defense-v1";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
+const APP_SHELL = ["./", "manifest.webmanifest", "icon.svg", "privacy.html"];
+
+function scopedUrl(path) {
+  return new URL(path, self.registration.scope).toString();
+}
 
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL.map(scopedUrl))));
   self.skipWaiting();
 });
 

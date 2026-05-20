@@ -1,5 +1,6 @@
 import { clearAliens } from "./aliens.js";
 import { clearPickups } from "./pickups.js";
+import { requestPointerLockSafely } from "./pointerLock.js";
 import { stopBossMusic } from "./sound.js";
 
 export function setPaused(context, paused) {
@@ -10,7 +11,7 @@ export function setPaused(context, paused) {
   if (paused) {
     document.exitPointerLock?.();
   } else {
-    context.canvas.requestPointerLock?.();
+    requestPointerLockSafely(context.canvas);
   }
 }
 
@@ -27,11 +28,16 @@ export function returnToMainMenu(context) {
   game.started = false;
   game.paused = false;
   game.gameOver = false;
+  game.continueInProgress = false;
   game.waveCountdown = 0;
   game.mobileMove.x = 0;
   game.mobileMove.y = 0;
   ui.pauseOverlay.style.display = "none";
+  ui.controlsOverlay.style.display = "none";
   ui.rewardOverlay.style.display = "none";
+  if (ui.continueButton) ui.continueButton.style.display = "none";
+  document.body.classList.remove("is-defeat-active");
+  document.body.classList.remove("is-game-over");
   ui.startOverlay.style.display = "flex";
   ui.message.textContent = "Choose difficulty to defend the base";
   document.exitPointerLock?.();

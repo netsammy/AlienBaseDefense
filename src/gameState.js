@@ -3,9 +3,12 @@ export const game = {
   sprinting: false,
   paused: false,
   gameOver: false,
+  continueUsed: false,
+  continueInProgress: false,
   difficulty: "easy",
   selectedStage: "lahore-outskirts",
   graphicsQuality: "medium",
+  showTouchControls: false,
   wave: 1,
   stage: 1,
   score: 0,
@@ -57,6 +60,8 @@ export function resetGameState() {
   game.sprinting = false;
   game.paused = false;
   game.gameOver = false;
+  game.continueUsed = false;
+  game.continueInProgress = false;
   game.wave = 1;
   game.stage = 1;
   game.score = 0;

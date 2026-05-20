@@ -4,6 +4,7 @@ const DEFAULT_SAVE = {
   coins: 0,
   selectedStage: "lahore-outskirts",
   graphicsQuality: "medium",
+  showTouchControls: false,
   permanentUpgrades: {
     rifleDamage: 0,
     fireRate: 0,
@@ -18,6 +19,7 @@ export function loadSave(game) {
     game.coins = Number.isFinite(save.coins) ? save.coins : 0;
     game.selectedStage = save.selectedStage || DEFAULT_SAVE.selectedStage;
     game.graphicsQuality = save.graphicsQuality || DEFAULT_SAVE.graphicsQuality;
+    game.showTouchControls = Boolean(save.showTouchControls);
     game.permanentUpgrades = {
       ...DEFAULT_SAVE.permanentUpgrades,
       ...(save.permanentUpgrades || {})
@@ -26,6 +28,7 @@ export function loadSave(game) {
     game.coins = DEFAULT_SAVE.coins;
     game.selectedStage = DEFAULT_SAVE.selectedStage;
     game.graphicsQuality = DEFAULT_SAVE.graphicsQuality;
+    game.showTouchControls = DEFAULT_SAVE.showTouchControls;
     game.permanentUpgrades = { ...DEFAULT_SAVE.permanentUpgrades };
   }
 }
@@ -35,6 +38,7 @@ export function saveGame(game) {
     coins: game.coins,
     selectedStage: game.selectedStage,
     graphicsQuality: game.graphicsQuality,
+    showTouchControls: Boolean(game.showTouchControls),
     permanentUpgrades: game.permanentUpgrades
   }));
 }

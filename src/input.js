@@ -1,11 +1,31 @@
 import { PLAYER_SPEED } from "./player.js";
 import { fire, reload } from "./weapons.js";
 import { returnToMainMenu, setPaused, togglePause } from "./pause.js";
+import { requestPointerLockSafely } from "./pointerLock.js";
+import { saveGame } from "./saveSystem.js";
 
 export function setupInput(context) {
   const { canvas, camera, game, ui, resetGame } = context;
 
+  const canUseGameplayPointerLock = () => (
+    game.started
+    && !game.paused
+    && !game.gameOver
+    && ui.startOverlay.style.display !== "flex"
+    && ui.pauseOverlay.style.display !== "flex"
+    && ui.controlsOverlay.style.display !== "flex"
+    && ui.rewardOverlay.style.display !== "flex"
+  );
+
+  canvas.addEventListener("mousedown", e => {
+    if (e.button === 0 && canUseGameplayPointerLock() && document.pointerLockElement !== canvas) {
+      requestPointerLockSafely(canvas);
+    }
+  });
+
   window.addEventListener("mousedown", e => {
+    if (!canUseGameplayPointerLock()) return;
+    if (e.target.closest?.("#mobileControls")) return;
     if (e.button === 0) fire(context);
   });
 
@@ -44,18 +64,65 @@ export function setupInput(context) {
     });
   });
 
-  ui.restartButton.addEventListener("click", resetGame);
-  ui.restartButton.addEventListener("click", () => canvas.requestPointerLock?.());
+  const requestRestart = event => {
+    event.preventDefault();
+    event.stopPropagation();
+    resetGame();
+    requestPointerLockSafely(canvas);
+  };
+  ui.restartButton.addEventListener("pointerup", requestRestart);
+  ui.restartButton.addEventListener("touchend", requestRestart, { passive: false });
+  ui.restartButton.addEventListener("click", requestRestart);
+  if (ui.continueButton) {
+    const requestContinue = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (ui.continueButton.disabled) return;
+      context.continueAfterReward?.();
+    };
+    ui.continueButton.addEventListener("pointerup", requestContinue);
+    ui.continueButton.addEventListener("touchend", requestContinue, { passive: false });
+    ui.continueButton.addEventListener("click", requestContinue);
+  }
   ui.resumeButton.addEventListener("click", () => setPaused(context, false));
+  ui.controlsButton.addEventListener("click", () => {
+    ui.controlsOverlay.style.display = "flex";
+  });
+  ui.menuControlsButton.addEventListener("click", () => {
+    ui.controlsOverlay.style.display = "flex";
+  });
+  ui.controlsCloseButton.addEventListener("click", () => {
+    ui.controlsOverlay.style.display = "none";
+  });
   ui.pauseRestartButton.addEventListener("click", resetGame);
   ui.mainMenuButton.addEventListener("click", () => returnToMainMenu(context));
+  document.body.classList.toggle("show-touch-controls", Boolean(game.showTouchControls));
+  if (ui.touchControlsToggle) ui.touchControlsToggle.checked = Boolean(game.showTouchControls);
+  ui.touchControlsToggle?.addEventListener("change", () => {
+    game.showTouchControls = ui.touchControlsToggle.checked;
+    document.body.classList.toggle("show-touch-controls", game.showTouchControls);
+    saveGame(game);
+  });
 
   setupMobileInput(context);
 }
 
 function setupMobileInput(context) {
-  const { game, ui } = context;
+  const { camera, game, ui } = context;
   let joystickPointerId = null;
+  let lookPointerId = null;
+  let lookLastX = 0;
+  let lookLastY = 0;
+
+  const canUseMobileLook = () => (
+    game.started
+    && !game.paused
+    && !game.gameOver
+    && ui.startOverlay.style.display !== "flex"
+    && ui.pauseOverlay.style.display !== "flex"
+    && ui.controlsOverlay.style.display !== "flex"
+    && ui.rewardOverlay.style.display !== "flex"
+  );
 
   const resetJoystick = () => {
     joystickPointerId = null;
@@ -94,6 +161,35 @@ function setupMobileInput(context) {
   ui.joystick.addEventListener("pointerup", resetJoystick);
   ui.joystick.addEventListener("pointercancel", resetJoystick);
 
+  ui.lookPad?.addEventListener("pointerdown", event => {
+    if (!canUseMobileLook()) return;
+    event.preventDefault();
+    lookPointerId = event.pointerId;
+    lookLastX = event.clientX;
+    lookLastY = event.clientY;
+    ui.lookPad.setPointerCapture(event.pointerId);
+  });
+
+  ui.lookPad?.addEventListener("pointermove", event => {
+    if (event.pointerId !== lookPointerId || !canUseMobileLook()) return;
+    event.preventDefault();
+    const lookSensitivity = 0.0042;
+    const dx = event.clientX - lookLastX;
+    const dy = event.clientY - lookLastY;
+    lookLastX = event.clientX;
+    lookLastY = event.clientY;
+
+    camera.rotation.y += dx * lookSensitivity;
+    camera.rotation.x = clamp(camera.rotation.x + dy * lookSensitivity, -1.18, 1.18);
+  });
+
+  const resetLook = event => {
+    if (!event || event.pointerId === lookPointerId) lookPointerId = null;
+  };
+
+  ui.lookPad?.addEventListener("pointerup", resetLook);
+  ui.lookPad?.addEventListener("pointercancel", resetLook);
+
   ui.mobileFireButton.addEventListener("pointerdown", event => {
     event.preventDefault();
     fire(context);
@@ -114,4 +210,8 @@ function setupMobileInput(context) {
     game.sprinting = false;
     context.camera.speed = PLAYER_SPEED.normal;
   });
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }

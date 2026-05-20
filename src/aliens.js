@@ -9,6 +9,7 @@ import { cloneLoadedAsset, fitModelToHeight, getModelBounds } from "./assets.js"
 import { showRewardChoices } from "./rewards.js";
 import { pulseBaseDamage } from "./effects.js";
 import { awardCoins } from "./shop.js";
+import { isRewardedContinueAvailable, showInterstitialAtBreakIfAvailable } from "./adBridge.js";
 
 const ALIEN_VARIANTS = [
   { type: "grunt", score: 100, health: 0, speed: 1, damage: 1, scale: 1, color: new BABYLON.Color3(0.18, 0.82, 0.22), height: 3.15, assetKey: "alienGruntGreen" },
@@ -226,6 +227,12 @@ export function clearAliens(game) {
 
 export function damageAlien(context, alien, amount, source = "player") {
   if (!alien || alien.dead) return;
+  if (source === "player") alien.playerTagged = true;
+  if (source === "defense" && !alien.playerTagged) {
+    alien.health = Math.max(1, alien.health - amount);
+    updateAlienHealthBar(alien);
+    return;
+  }
   alien.health -= amount;
   updateAlienHealthBar(alien);
   if (alien.health <= 0) killAlien(context, alien, source);
@@ -280,6 +287,7 @@ export function killAlien(context, alien, source = "player") {
   }
 
   if (game.aliens.length === 0 && game.started && !game.gameOver) {
+    playSound("wave_clear");
     const clearedByDefense = game.waveDefenseKills > 0 && source === "defense";
     const waveClearMessage = clearedByDefense
       ? `Wave secured! Your towers finished the last alien. You killed ${game.wavePlayerKills}; defenses killed ${game.waveDefenseKills}.`
@@ -308,10 +316,11 @@ export function damagePlayer(context, amount) {
   if (game.health <= 0) {
     game.gameOver = true;
     stopBossMusic();
+    playSound("game_over");
     updateBestScore(game);
     updateUI(ui, game);
-    ui.message.textContent = `Game Over - Final Score: ${game.score}. Press RESTART.`;
     document.exitPointerLock?.();
+    showDefeatOptions(context, `Game Over - Final Score: ${game.score}.`);
   }
 }
 
@@ -328,10 +337,33 @@ export function damageBase(context, amount) {
   if (game.baseHealth <= 0) {
     game.gameOver = true;
     stopBossMusic();
+    playSound("game_over");
     updateBestScore(game);
     updateUI(ui, game);
-    ui.message.textContent = `Base destroyed - Final Score: ${game.score}. Press RESTART.`;
     document.exitPointerLock?.();
+    showDefeatOptions(context, `Base destroyed - Final Score: ${game.score}.`);
+  }
+}
+
+function showDefeatOptions(context, message) {
+  const { game, ui } = context;
+  const canContinue = isRewardedContinueAvailable() && !game.continueUsed;
+  game.continueInProgress = false;
+  document.body.classList.add("is-game-over");
+  document.body.classList.toggle("is-defeat-active", canContinue);
+
+  if (ui.continueButton) {
+    ui.continueButton.style.display = canContinue ? "block" : "none";
+    ui.continueButton.disabled = false;
+    ui.continueButton.textContent = "WATCH AD TO CONTINUE";
+  }
+
+  ui.message.textContent = canContinue
+    ? `${message} Watch an ad to continue or press RESTART.`
+    : `${message} Press RESTART.`;
+
+  if (!canContinue) {
+    showInterstitialAtBreakIfAvailable("game-over", game.wave);
   }
 }
 

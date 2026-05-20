@@ -29,25 +29,27 @@ export function getUI() {
     startOverlay: document.getElementById("startOverlay"),
     startButton: document.getElementById("startButton"),
     restartButton: document.getElementById("restartButton"),
+    continueButton: document.getElementById("continueButton"),
     alienMapCanvas: document.getElementById("alienMapCanvas"),
     damageFlash: document.getElementById("damageFlash"),
     pauseOverlay: document.getElementById("pauseOverlay"),
     resumeButton: document.getElementById("resumeButton"),
+    controlsButton: document.getElementById("controlsButton"),
+    controlsOverlay: document.getElementById("controlsOverlay"),
+    controlsCloseButton: document.getElementById("controlsCloseButton"),
+    menuControlsButton: document.getElementById("menuControlsButton"),
     pauseRestartButton: document.getElementById("pauseRestartButton"),
     mainMenuButton: document.getElementById("mainMenuButton"),
-    alienGalleryButton: document.getElementById("alienGalleryButton"),
-    alienGalleryOverlay: document.getElementById("alienGalleryOverlay"),
-    alienGalleryClose: document.getElementById("alienGalleryClose"),
-    alienPreviewCanvas: document.getElementById("alienPreviewCanvas"),
-    alienPreviewButtons: document.querySelectorAll(".alienPreviewBtn"),
     rewardOverlay: document.getElementById("rewardOverlay"),
     rewardTitle: document.getElementById("rewardTitle"),
     rewardSummary: document.getElementById("rewardSummary"),
     rewardButtons: document.querySelectorAll(".rewardBtn"),
     shopButtons: document.querySelectorAll(".shopBtn"),
     graphicsButtons: document.querySelectorAll(".graphicsBtn"),
+    touchControlsToggle: document.getElementById("touchControlsToggle"),
     stageButtons: document.querySelectorAll(".stageBtn"),
     mobileControls: document.getElementById("mobileControls"),
+    lookPad: document.getElementById("lookPad"),
     joystick: document.getElementById("joystick"),
     joystickKnob: document.getElementById("joystickKnob"),
     mobileFireButton: document.getElementById("mobileFireButton"),
@@ -76,6 +78,22 @@ export function updateUI(ui, game) {
   ui.maxAmmo.textContent = game.maxAmmo;
   ui.weaponStatus.textContent = getWeaponStatus(game);
   updateBossPanel(ui, game);
+  syncMobileControls(ui, game);
+}
+
+function syncMobileControls(ui, game) {
+  if (!ui.mobileControls) return;
+  const gameplayActive = game.started
+    && !game.paused
+    && !game.gameOver
+    && ui.startOverlay.style.display !== "flex"
+    && ui.pauseOverlay.style.display !== "flex"
+    && ui.controlsOverlay.style.display !== "flex"
+    && ui.rewardOverlay.style.display !== "flex";
+
+  ui.mobileControls.classList.toggle("is-gameplay-active", gameplayActive);
+  document.body.classList.toggle("show-touch-controls", Boolean(game.showTouchControls));
+  if (ui.touchControlsToggle) ui.touchControlsToggle.checked = Boolean(game.showTouchControls);
 }
 
 function updateBossPanel(ui, game) {

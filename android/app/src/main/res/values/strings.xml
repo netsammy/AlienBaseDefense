@@ -4,4 +4,5 @@
     <string name="title_activity_main">Alien Base Defense</string>
     <string name="package_name">com.netsammy.alienbasedefense</string>
     <string name="custom_url_scheme">com.netsammy.alienbasedefense</string>
+    <string name="admob_app_id">ca-app-pub-1797269464593835~6447448294</string>
 </resources>

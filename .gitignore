@@ -3,6 +3,8 @@ dist/
 .vite/
 .env
 .env.*
+release/*.jks
+release/*.keystore
 *.log
 npm-debug.log*
 yarn-debug.log*

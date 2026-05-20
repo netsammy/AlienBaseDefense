@@ -1,4 +1,7 @@
 import { updateUI } from "./ui.js";
+import { requestPointerLockSafely } from "./pointerLock.js";
+import { playSound } from "./sound.js";
+import { showInterstitialAtBreakIfAvailable } from "./adBridge.js";
 
 const REWARDS = {
   repair: {
@@ -29,8 +32,9 @@ const REWARDS = {
 };
 
 export function showRewardChoices(context) {
-  const { game, ui } = context;
+  const { canvas, game, ui } = context;
   game.paused = true;
+  document.exitPointerLock?.();
   const defensesHelped = game.waveDefenseKills > 0;
   ui.rewardTitle.textContent = defensesHelped ? "WAVE SECURED" : "WAVE CLEARED";
   ui.rewardSummary.textContent = defensesHelped
@@ -38,13 +42,16 @@ export function showRewardChoices(context) {
     : `Choose one upgrade. You eliminated ${game.wavePlayerKills} aliens this wave.`;
   ui.rewardOverlay.style.display = "flex";
   ui.rewardButtons.forEach(button => {
-    button.onclick = () => {
+    button.onclick = async () => {
       const reward = REWARDS[button.dataset.reward];
       const result = reward.apply(game);
-      game.paused = false;
+      playSound("reward_select");
       ui.rewardOverlay.style.display = "none";
       ui.message.textContent = `${reward.label} applied. ${result} Next wave in 3 seconds...`;
       updateUI(ui, game);
+      await showInterstitialAtBreakIfAvailable("wave-clear", game.wave - 1);
+      game.paused = false;
+      requestPointerLockSafely(canvas);
       game.waveTimer = setTimeout(() => context.startNextWave(), 3000);
     };
   });

@@ -2,7 +2,9 @@ import * as BABYLON from "@babylonjs/core";
 import "@babylonjs/core/Loading/sceneLoader";
 import "@babylonjs/loaders/glTF";
 
-const MODEL_LOAD_TIMEOUT_MS = 18000;
+const MODEL_LOAD_TIMEOUT_MS = 45000;
+const MOBILE_MODEL_LOAD_TIMEOUT_MS = 18000;
+const pendingAssetLoads = new WeakMap();
 
 export const ASSET_PATHS = {
   alien: "/assets/models/alien_enemy.glb",
@@ -24,6 +26,27 @@ export const ASSET_PATHS = {
   sandbagWall: "/assets/models/sandbag_wall.glb",
   marketStallCrates: "/assets/models/market_stall_crates.glb"
 };
+
+export function resolveAssetUrl(path) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  const base = import.meta.env.BASE_URL || "/";
+  if (base === "./") {
+    return new URL(path.replace(/^\/+/, ""), document.baseURI).toString();
+  }
+  const relativePath = path.replace(/^\/+/, "");
+  return `${base}${relativePath}`;
+}
+
+export function shouldUseModelAssets() {
+  if (new URLSearchParams(location.search).has("noModels")) return false;
+  return true;
+}
+
+export function isNativeMobileBuild() {
+  const capacitor = window.Capacitor;
+  return Boolean(capacitor?.isNativePlatform?.() || /\bwv\b/i.test(navigator.userAgent));
+}
 
 export const CORE_ASSET_KEYS = [
   "alien",
@@ -49,38 +72,55 @@ export async function prepareAssetPlaceholders(scene, keys = Object.keys(ASSET_P
 
 export async function loadModelAsset(scene, assets, key) {
   if (Object.prototype.hasOwnProperty.call(assets, key)) return assets[key];
+  const pendingLoads = getPendingLoads(assets);
+  if (pendingLoads.has(key)) return pendingLoads.get(key);
+  if (!shouldUseModelAssets()) {
+    assets[key] = null;
+    return assets[key];
+  }
   const path = ASSET_PATHS[key];
-  assets[key] = path ? await tryLoadModel(scene, path) : null;
+  const pendingLoad = path ? tryLoadModel(scene, path) : Promise.resolve(null);
+  pendingLoads.set(key, pendingLoad);
+  assets[key] = await pendingLoad;
+  pendingLoads.delete(key);
   return assets[key];
 }
 
-export async function loadModelAssets(scene, assets, keys) {
-  await Promise.all([...new Set(keys)].map(key => loadModelAsset(scene, assets, key)));
+function getPendingLoads(assets) {
+  if (!pendingAssetLoads.has(assets)) pendingAssetLoads.set(assets, new Map());
+  return pendingAssetLoads.get(assets);
+}
+
+export async function loadModelAssets(scene, assets, keys, options = {}) {
+  const uniqueKeys = [...new Set(keys)].filter(Boolean);
+  let completed = 0;
+  for (const key of uniqueKeys) {
+    await loadModelAsset(scene, assets, key);
+    completed++;
+    options.onProgress?.({ completed, total: uniqueKeys.length, key });
+  }
   return assets;
 }
 
 async function tryLoadModel(scene, path) {
   try {
-    const cachePath = `${path}?v=${Date.now()}`;
-    const response = await fetchWithTimeout(cachePath, { method: "HEAD", cache: "reload" }, 5000);
-    if (!response.ok) return null;
-
-    const loadPromise = BABYLON.SceneLoader.LoadAssetContainerAsync(path.substring(0, path.lastIndexOf("/") + 1), `${path.substring(path.lastIndexOf("/") + 1)}?v=${Date.now()}`, scene);
-    const result = await withTimeout(loadPromise, MODEL_LOAD_TIMEOUT_MS);
+    const resolvedPath = resolveAssetUrl(path);
+    const cacheSuffix = import.meta.env.DEV ? `?v=${Date.now()}` : "";
+    const loadPromise = BABYLON.SceneLoader.LoadAssetContainerAsync(
+      resolvedPath.substring(0, resolvedPath.lastIndexOf("/") + 1),
+      `${resolvedPath.substring(resolvedPath.lastIndexOf("/") + 1)}${cacheSuffix}`,
+      scene
+    );
+    const timeoutMs = isNativeMobileBuild() ? MOBILE_MODEL_LOAD_TIMEOUT_MS : MODEL_LOAD_TIMEOUT_MS;
+    const result = await withTimeout(loadPromise, timeoutMs);
     if (!result) return null;
 
-    const root = new BABYLON.TransformNode(path, scene);
+    const root = new BABYLON.TransformNode(resolvedPath, scene);
     result.animationGroups.forEach(group => group.stop());
     return { root, animationGroups: result.animationGroups, container: result };
   } catch {
     return null;
   }
-}
-
-function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
 }
 
 function withTimeout(promise, timeoutMs) {

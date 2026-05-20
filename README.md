@@ -16,16 +16,26 @@ npm run build
 npm run preview
 ```
 
+GitHub Pages public URL:
+
+```text
+https://netsammy.github.io/AlienBaseDefense/
+```
+
 ## Store Preparation Status
 
-- PWA metadata is in place with `public/manifest.webmanifest`, `public/icon.svg`, and a production service worker.
+- PWA metadata is in place with `public/manifest.webmanifest`, `public/icon.svg`, PNG install icons, and a production service worker.
+- Windows Store listing notes and upload checklist are in `STORE_SUBMISSION.md`.
+- A local privacy policy page is available at `public/privacy.html`.
+- WebGL compatibility fallback is in place for unsupported devices.
+- Controls are available from the main menu and pause menu.
 - Startup now preloads only core combat GLBs first; city/stage prop GLBs lazy-load when their stage is selected.
 - Android packaging is in place with Capacitor. The debug APK builds at `android/app/build/outputs/apk/debug/app-debug.apk`.
 - The Android app targets SDK 36, runs landscape, and enables hardware acceleration for WebGL.
 - A release `.aab` can be generated at `android/app/build/outputs/bundle/release/app-release.aab`.
 - Play Store upload signing is not configured yet. Next step: create an upload keystore, configure Gradle signing, rebuild the `.aab`, and test on real devices.
-- Windows Store packaging is not created yet. Next step: package the PWA as MSIX and run the Windows App Certification Kit.
-- Store art still needed: PNG icons, feature graphic, screenshots, trailer/key art, privacy policy page, and age-rating answers.
+- Windows Store packaging is not created yet. Next step: deploy the `dist/` build to HTTPS, package the PWA with PWABuilder using Partner Center Product Identity values, upload the generated Windows package, and run Microsoft Store pre-submission checks.
+- Store art still needed outside the app package: real gameplay screenshots, store logo/tile images, optional trailer, and final branded key art.
 
 ## Android Build
 
@@ -97,6 +107,8 @@ android/app/build/outputs/bundle/release/app-release.aab
 - Loading screen while combat models initialize
 - Polished main menu status cards and graphics selector
 - Boss-wave warning presentation with boss health bar and warning/music tones
+- Wave-clear, reward-selection, and game-over sound cues
+- Distant skyline background geometry for richer arena presentation without increasing asset download size
 - Rifle upgrades now visibly scale muzzle flash, tracer size, and impact effects
 - Persistent coin save and permanent upgrade shop
 - Starter base-defense towers: plasma turret and slow-field tower
