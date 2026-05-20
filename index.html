@@ -357,15 +357,19 @@
       display: none;
       pointer-events: auto;
       position: absolute;
-      right: 18px;
-      top: 18px;
+      left: 50%;
+      top: 236px;
+      transform: translateX(-50%);
+      z-index: 3;
       background: linear-gradient(135deg, #ffdd55, #ff7755);
       color: #120800;
       border: none;
       border-radius: 999px;
-      padding: 11px 18px;
+      padding: 13px 28px;
       font-weight: 900;
       cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
       box-shadow: 0 0 18px rgba(255, 190, 70, 0.35);
     }
 
@@ -399,8 +403,18 @@
       z-index: 80;
     }
 
+    body.is-game-over #hud {
+      z-index: 80;
+    }
+
+    body.is-game-over #restartButton {
+      display: block;
+    }
+
     body.is-defeat-active #renderCanvas,
-    body.is-defeat-active #mobileControls {
+    body.is-defeat-active #mobileControls,
+    body.is-game-over #renderCanvas,
+    body.is-game-over #mobileControls {
       pointer-events: none;
     }
 
@@ -1053,7 +1067,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-wS6-tGYK.js"></script>
+  <script type="module" crossorigin src="./assets/index-Du-aEaDO.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-lhHHWwHU.js">
   <link rel="modulepreload" crossorigin href="./assets/babylon-CgJV7XBa.js">
 </head>
