@@ -499,8 +499,8 @@ function createDistantSkyline(scene) {
 function createGun(scene, camera, materials) {
   const gunRoot = new BABYLON.TransformNode("GunRoot", scene);
   gunRoot.parent = camera;
-  gunRoot.position = new BABYLON.Vector3(0.82, -0.72, 1.04);
-  gunRoot.rotation = new BABYLON.Vector3(0.04, -0.12, 0);
+  gunRoot.position = new BABYLON.Vector3(1.05, -0.86, 0.92);
+  gunRoot.rotation = new BABYLON.Vector3(0.02, -0.2, -0.03);
 
   const gunBody = BABYLON.MeshBuilder.CreateBox("GunBody", { width: 0.34, height: 0.25, depth: 1.4 }, scene);
   gunBody.parent = gunRoot;
@@ -531,18 +531,18 @@ function attachRifleModel(context) {
   const rifleAsset = context.loadedAssets.plasmaCannon || context.loadedAssets.rifle;
   const rifle = cloneLoadedAsset(rifleAsset, "PlasmaRifleModel", {
     parent: context.gunRoot,
-    position: new BABYLON.Vector3(0, 0, 0.42),
-    rotation: new BABYLON.Vector3(0, Math.PI, 0),
+    position: new BABYLON.Vector3(0.16, -0.08, 0.18),
+    rotation: new BABYLON.Vector3(0.02, Math.PI + 0.08, 0),
     scaling: new BABYLON.Vector3(1, 1, 1),
     isPickable: false
   });
 
   if (!rifle) return;
   context.rifleModel = rifle;
-  fitModelToLargestAxis(rifle, 0.62);
-  rifle.position.x += 0.2;
-  rifle.position.y -= 0.12;
-  rifle.position.z += 0.3;
+  fitModelToLargestAxis(rifle, 0.42);
+  rifle.position.x += 0.34;
+  rifle.position.y -= 0.18;
+  rifle.position.z += 0.16;
   context.gunRoot.getChildMeshes(false).forEach(mesh => {
     if (mesh.metadata?.fallbackGun) mesh.setEnabled(false);
   });
