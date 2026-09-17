@@ -35,6 +35,8 @@ export function returnToMainMenu(context) {
   ui.pauseOverlay.style.display = "none";
   ui.controlsOverlay.style.display = "none";
   ui.rewardOverlay.style.display = "none";
+  if (ui.stageClearOverlay) ui.stageClearOverlay.style.display = "none";
+  if (ui.defeatOverlay) ui.defeatOverlay.style.display = "none";
   if (ui.continueButton) ui.continueButton.style.display = "none";
   document.body.classList.remove("is-defeat-active");
   document.body.classList.remove("is-game-over");

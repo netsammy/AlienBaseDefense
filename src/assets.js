@@ -24,7 +24,17 @@ export const ASSET_PATHS = {
   streetPlanterBarrier: "/assets/models/street_planter_barrier.glb",
   sectorSignBoard: "/assets/models/sector_sign_board.glb",
   sandbagWall: "/assets/models/sandbag_wall.glb",
-  marketStallCrates: "/assets/models/market_stall_crates.glb"
+  marketStallCrates: "/assets/models/market_stall_crates.glb",
+  alienSpitter: "/assets/models/alien_spitter_ranged.glb",
+  alienScoutWasp: "/assets/models/alien_scout_wasp.glb",
+  alienGoliathBoss: "/assets/models/alien_goliath_boss.glb",
+  fpsHeavyShotgun: "/assets/models/fps_heavy_shotgun.glb",
+  fpsRocketLauncher: "/assets/models/fps_rocket_launcher.glb",
+  turretGatlingHeavy: "/assets/models/turret_gatling_heavy.glb",
+  turretCryoBeam: "/assets/models/turret_cryo_beam.glb",
+  lahoreNeonBillboard: "/assets/models/lahore_neon_billboard.glb",
+  scifiFusionCore: "/assets/models/scifi_fusion_core.glb",
+  supplyDropPod: "/assets/models/supply_drop_pod.glb"
 };
 
 export function resolveAssetUrl(path) {
@@ -49,9 +59,12 @@ export function isNativeMobileBuild() {
 }
 
 export const CORE_ASSET_KEYS = [
-  "alien",
-  "rifle",
-  "plasmaCannon"
+  "fpsHeavyShotgun",
+  "plasmaCannon",
+  "turretGatlingHeavy",
+  "alienSpitter",
+  "alienScoutWasp",
+  "alienGoliathBoss"
 ];
 
 export const BACKGROUND_ASSET_KEYS = [
@@ -59,7 +72,11 @@ export const BACKGROUND_ASSET_KEYS = [
   "alienRunnerPurple",
   "alienBruteArmored",
   "alienBossHorned",
-  "alienBrutePurple"
+  "fpsRocketLauncher",
+  "turretCryoBeam",
+  "lahoreNeonBillboard",
+  "scifiFusionCore",
+  "supplyDropPod"
 ];
 
 export async function prepareAssetPlaceholders(scene, keys = Object.keys(ASSET_PATHS)) {
@@ -94,11 +111,11 @@ function getPendingLoads(assets) {
 export async function loadModelAssets(scene, assets, keys, options = {}) {
   const uniqueKeys = [...new Set(keys)].filter(Boolean);
   let completed = 0;
-  for (const key of uniqueKeys) {
+  await Promise.all(uniqueKeys.map(async key => {
     await loadModelAsset(scene, assets, key);
     completed++;
     options.onProgress?.({ completed, total: uniqueKeys.length, key });
-  }
+  }));
   return assets;
 }
 

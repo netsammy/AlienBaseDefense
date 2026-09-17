@@ -7,9 +7,9 @@ import {
   RewardAdPluginEvents
 } from "@capacitor-community/admob";
 
-const INTERSTITIAL_AD_ID = "ca-app-pub-1797269464593835/1599051538";
-const REWARDED_AD_ID = "ca-app-pub-1797269464593835/5429880091";
-const USE_LIVE_ADS = import.meta.env.VITE_ADMOB_LIVE === "true";
+const INTERSTITIAL_AD_ID = "ca-app-pub-1797269464593835/8755121202";
+const REWARDED_AD_ID = "ca-app-pub-1797269464593835/8619389836";
+const USE_LIVE_ADS = import.meta.env.PROD || import.meta.env.VITE_ADMOB_LIVE === "true";
 const INTERSTITIAL_COOLDOWN_MS = 2 * 60 * 1000;
 const WAVE_CLEAR_AD_INTERVAL = 3;
 const AD_DISMISS_TIMEOUT_MS = 60 * 1000;
@@ -308,6 +308,19 @@ function clearRewardedRetry() {
   rewardedRetryTimer = null;
 }
 
+export async function showRewardedDoubleLoot(context) {
+  const earned = await showRewardedContinue();
+  if (earned) {
+    const bonus = Math.max(120, (context.game.runCoins || 100));
+    context.game.coins += bonus;
+    context.game.runCoins += bonus;
+    if (context.ui.message) context.ui.message.textContent = `2X REWARD CLAIMED! +${bonus} coins added!`;
+    return true;
+  }
+  return false;
+}
+
 function areAdsRemoved() {
-  return localStorage.getItem("alienBaseDefense.removeAds") === "true";
+  return localStorage.getItem("alienBaseDefense.removeAds") === "true"
+    || Boolean(window.__alienBaseDefense?.game?.noAds);
 }

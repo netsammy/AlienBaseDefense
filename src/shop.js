@@ -1,11 +1,14 @@
 import { saveGame } from "./saveSystem.js";
 import { updateUI } from "./ui.js";
+import { purchaseStarterPack } from "./iap.js";
 
 const SHOP_ITEMS = {
-  rifleDamage: { label: "Rifle Damage", baseCost: 90, max: 8 },
-  fireRate: { label: "Fire Rate", baseCost: 100, max: 7 },
-  baseShield: { label: "Base Shield", baseCost: 110, max: 8 },
-  turretDamage: { label: "Turret Damage", baseCost: 95, max: 8 }
+  rifleDamage: { label: "Rifle Damage", baseCost: 90, max: 10 },
+  fireRate: { label: "Fire Rate", baseCost: 100, max: 8 },
+  baseShield: { label: "Base Shield", baseCost: 110, max: 10 },
+  turretDamage: { label: "Turret Damage", baseCost: 95, max: 10 },
+  critChance: { label: "Crit Optics", baseCost: 120, max: 5 },
+  shieldRegen: { label: "Nano Shield Repair", baseCost: 130, max: 6 }
 };
 
 export function setupShop(context) {
@@ -13,6 +16,12 @@ export function setupShop(context) {
   ui.shopButtons.forEach(button => {
     button.addEventListener("click", () => buyUpgrade(context, button.dataset.shopItem));
   });
+
+  const starterPackBtn = document.getElementById("buyStarterPackBtn");
+  if (starterPackBtn) {
+    starterPackBtn.addEventListener("click", () => purchaseStarterPack(context));
+  }
+
   refreshShop(context);
 }
 
@@ -50,8 +59,10 @@ export function buyUpgrade(context, key) {
 }
 
 export function applyUpgradeStats(game) {
-  game.fireRateMultiplier = Math.max(game.fireRateMultiplier, 1 + game.permanentUpgrades.fireRate * 0.08);
-  game.playerDamageBonus = Math.max(game.playerDamageBonus, game.permanentUpgrades.rifleDamage * 0.25);
+  game.fireRateMultiplier = Math.max(game.fireRateMultiplier, 1 + (game.permanentUpgrades.fireRate || 0) * 0.08);
+  game.playerDamageBonus = Math.max(game.playerDamageBonus, (game.permanentUpgrades.rifleDamage || 0) * 0.25);
+  game.critChanceBonus = (game.permanentUpgrades.critChance || 0) * 0.04;
+  game.shieldRegenBonus = (game.permanentUpgrades.shieldRegen || 0) * 3;
 }
 
 export function refreshShop(context) {
@@ -59,15 +70,32 @@ export function refreshShop(context) {
   if (!ui.coins) return;
   ui.coins.textContent = game.coins;
   ui.runCoins.textContent = game.runCoins;
+
   ui.shopButtons.forEach(button => {
     const item = SHOP_ITEMS[button.dataset.shopItem];
+    if (!item) return;
     const level = game.permanentUpgrades[button.dataset.shopItem] || 0;
     const cost = getUpgradeCost(item, level);
-    button.querySelector("span").textContent = level >= item.max ? `Level ${level} / MAX` : `Level ${level} - ${cost} coins`;
+    const span = button.querySelector("span");
+    if (span) {
+      span.textContent = level >= item.max ? `Level ${level} / MAX` : `Level ${level} - ${cost} coins`;
+    }
     button.disabled = level >= item.max;
   });
+
+  const starterPackBtn = document.getElementById("buyStarterPackBtn");
+  if (starterPackBtn) {
+    if (game.noAds) {
+      starterPackBtn.textContent = "VIP DEFENDER (ACTIVE)";
+      starterPackBtn.disabled = true;
+      starterPackBtn.style.opacity = "0.7";
+    } else {
+      starterPackBtn.textContent = "VIP STARTER PACK ($2.99)";
+      starterPackBtn.disabled = false;
+    }
+  }
 }
 
 function getUpgradeCost(item, level) {
-  return item.baseCost + level * 55;
+  return item.baseCost + level * 60;
 }

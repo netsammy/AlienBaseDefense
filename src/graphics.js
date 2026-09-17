@@ -18,6 +18,12 @@ const PRESETS = {
     hardwareScaling: 1,
     effectsScale: 1.15,
     fogDensity: 0.012
+  },
+  ultra: {
+    label: "Ultra 120Hz",
+    hardwareScaling: 0.85,
+    effectsScale: 1.4,
+    fogDensity: 0.012
   }
 };
 
@@ -41,6 +47,11 @@ export function applyGraphicsQuality(context, quality, shouldSave = true) {
   game.effectsScale = preset.effectsScale;
   engine.setHardwareScalingLevel(preset.hardwareScaling);
   scene.fogDensity = preset.fogDensity;
+
+  if (scene.glowLayer) {
+    scene.glowLayer.isEnabled = quality !== "low";
+    scene.glowLayer.intensity = quality === "high" ? 0.95 : 0.7;
+  }
 
   ui.graphicsButtons?.forEach(button => {
     button.classList.toggle("selected", button.dataset.graphicsQuality === game.graphicsQuality);

@@ -3,7 +3,10 @@ import { getUI } from "./ui.js";
 import { createGameScene } from "./scene.js";
 import { setupInput } from "./input.js";
 import { setupAudioUnlock } from "./sound.js";
-import { setupAdsIfAvailable } from "./adBridge.js";
+import { setupAdsIfAvailable, showRewardedDoubleLootIfAvailable } from "./adBridge.js";
+import { setupIAP } from "./iap.js";
+import { initRetention, claimDailyReward, claimMissionReward } from "./retention.js";
+import { setupSettingsModal } from "./settings.js";
 
 const canvas = document.getElementById("renderCanvas");
 const ui = getUI();
@@ -18,10 +21,36 @@ if (!supportsWebGL()) {
 
   setupAudioUnlock();
   setupInput(context);
+  setupSettingsModal(context);
   setupAdsIfAvailable();
+  setupIAP(context);
+  initRetention(context);
+
+  const claimDailyBtn = document.getElementById("claimDailyBtn");
+  if (claimDailyBtn) {
+    claimDailyBtn.addEventListener("click", () => {
+      claimDailyReward(context);
+      claimDailyBtn.disabled = !context.game.canClaimDaily;
+      claimDailyBtn.textContent = context.game.canClaimDaily ? "CLAIM DAILY REWARD" : "DAILY REWARD CLAIMED";
+    });
+  }
+
+  const doubleLootBtn = document.getElementById("doubleLootBtn");
+  if (doubleLootBtn) {
+    doubleLootBtn.addEventListener("click", async () => {
+      doubleLootBtn.disabled = true;
+      doubleLootBtn.textContent = "CLAIMING...";
+      const success = await showRewardedDoubleLootIfAvailable(context);
+      doubleLootBtn.textContent = success ? "2X REWARD CLAIMED!" : "DOUBLE LOOT (2X)";
+    });
+  }
 
   engine.runRenderLoop(() => {
-    context.scene.render();
+    try {
+      context.scene.render();
+    } catch (err) {
+      console.error("Safely caught render loop error:", err);
+    }
   });
 
   window.addEventListener("resize", () => {

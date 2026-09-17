@@ -1,6 +1,7 @@
 import * as BABYLON from "@babylonjs/core";
 import { updateUI } from "./ui.js";
 import { playSound } from "./sound.js";
+import { cloneLoadedAsset, fitModelToHeight } from "./assets.js";
 
 export function clearPickups(game) {
   for (const pickup of game.pickups) {
@@ -10,27 +11,47 @@ export function clearPickups(game) {
 }
 
 export function createHealthPack(context, position) {
-  const { scene, game } = context;
-  const packMat = new BABYLON.StandardMaterial("HealthPackMat" + Math.random(), scene);
-  packMat.diffuseColor = new BABYLON.Color3(1, 0.1, 0.1);
-  packMat.emissiveColor = new BABYLON.Color3(0.5, 0, 0);
-
-  const pack = BABYLON.MeshBuilder.CreateBox("HealthPack", { size: 0.7 }, scene);
-  pack.position = position.add(new BABYLON.Vector3(0, 0.5, 0));
-  pack.material = packMat;
+  const { scene, game, loadedAssets } = context;
+  const podAsset = loadedAssets?.supplyDropPod;
+  let pack = null;
+  if (podAsset) {
+    pack = cloneLoadedAsset(podAsset, "HealthDropPod", { isPickable: false });
+    if (pack) {
+      fitModelToHeight(pack, 1.2, 0);
+      pack.position = position.clone();
+    }
+  }
+  if (!pack) {
+    const packMat = new BABYLON.StandardMaterial("HealthPackMat" + Math.random(), scene);
+    packMat.diffuseColor = new BABYLON.Color3(1, 0.1, 0.1);
+    packMat.emissiveColor = new BABYLON.Color3(0.5, 0, 0);
+    pack = BABYLON.MeshBuilder.CreateBox("HealthPack", { size: 0.7 }, scene);
+    pack.position = position.add(new BABYLON.Vector3(0, 0.5, 0));
+    pack.material = packMat;
+  }
   pack.pickupType = "health";
   game.pickups.push(pack);
 }
 
 export function createAmmoPack(context, position) {
-  const { scene, game } = context;
-  const packMat = new BABYLON.StandardMaterial("AmmoPackMat" + Math.random(), scene);
-  packMat.diffuseColor = new BABYLON.Color3(1, 0.85, 0.05);
-  packMat.emissiveColor = new BABYLON.Color3(0.45, 0.28, 0);
-
-  const pack = BABYLON.MeshBuilder.CreateCylinder("AmmoPack", { diameter: 0.7, height: 0.65, tessellation: 8 }, scene);
-  pack.position = position.add(new BABYLON.Vector3(0, 0.45, 0));
-  pack.material = packMat;
+  const { scene, game, loadedAssets } = context;
+  const podAsset = loadedAssets?.supplyDropPod;
+  let pack = null;
+  if (podAsset) {
+    pack = cloneLoadedAsset(podAsset, "AmmoDropPod", { isPickable: false });
+    if (pack) {
+      fitModelToHeight(pack, 1.1, 0);
+      pack.position = position.clone();
+    }
+  }
+  if (!pack) {
+    const packMat = new BABYLON.StandardMaterial("AmmoPackMat" + Math.random(), scene);
+    packMat.diffuseColor = new BABYLON.Color3(1, 0.85, 0.05);
+    packMat.emissiveColor = new BABYLON.Color3(0.45, 0.28, 0);
+    pack = BABYLON.MeshBuilder.CreateCylinder("AmmoPack", { diameter: 0.7, height: 0.65, tessellation: 8 }, scene);
+    pack.position = position.add(new BABYLON.Vector3(0, 0.45, 0));
+    pack.material = packMat;
+  }
   pack.pickupType = "ammo";
   game.pickups.push(pack);
 }
