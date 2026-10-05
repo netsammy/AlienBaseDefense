@@ -14,12 +14,79 @@ import { updateMissionProgress } from "./retention.js";
 import { triggerAchievement } from "./achievements.js";
 
 const ALIEN_VARIANTS = [
-  { type: "spitter", score: 180, health: 0, speed: 0.92, damage: 1.2, scale: 1.05, color: new BABYLON.Color3(0.85, 0.3, 0.95), height: 3.2, assetKey: "alienSpitter" },
-  { type: "wasp", score: 195, health: -1, speed: 1.35, damage: 1.0, scale: 0.95, color: new BABYLON.Color3(1.0, 0.85, 0.15), height: 2.3, assetKey: "alienScoutWasp", isFlying: true },
-  { type: "brute", score: 320, health: 3, speed: 0.68, damage: 1.8, scale: 1.35, color: new BABYLON.Color3(1.0, 0.45, 0.1), height: 3.9, assetKey: "alienGoliathBoss" },
-  { type: "boss", score: 1000, health: 12, speed: 0.54, damage: 2.4, scale: 2.2, color: new BABYLON.Color3(1, 0.15, 0.08), height: 5.8, assetKey: "alienGoliathBoss" },
-  { type: "grunt", score: 120, health: 0, speed: 0.95, damage: 1.0, scale: 1.0, color: new BABYLON.Color3(0.85, 0.3, 0.95), height: 3.0, assetKey: "alienSpitter" },
-  { type: "runner", score: 140, health: -1, speed: 1.4, damage: 0.8, scale: 0.9, color: new BABYLON.Color3(1.0, 0.85, 0.15), height: 2.3, assetKey: "alienScoutWasp", isFlying: true }
+  {
+    type: "spitter",
+    score: 180,
+    health: 0,
+    speed: 0.92,
+    damage: 1.2,
+    scale: 1.45,
+    color: new BABYLON.Color3(0.85, 0.3, 0.95),
+    height: 4.6,
+    assetKeys: ["alienSpitter", "alien"],
+    assetKey: "alienSpitter"
+  },
+  {
+    type: "wasp",
+    score: 195,
+    health: -1,
+    speed: 1.35,
+    damage: 1.0,
+    scale: 1.35,
+    color: new BABYLON.Color3(1.0, 0.85, 0.15),
+    height: 3.8,
+    assetKeys: ["alienScoutWasp"],
+    assetKey: "alienScoutWasp",
+    isFlying: true
+  },
+  {
+    type: "brute",
+    score: 320,
+    health: 3,
+    speed: 0.68,
+    damage: 1.8,
+    scale: 1.85,
+    color: new BABYLON.Color3(1.0, 0.45, 0.1),
+    height: 6.2,
+    assetKeys: ["alienBruteArmored", "alienBrutePurple", "alienGoliathBoss"],
+    assetKey: "alienBruteArmored"
+  },
+  {
+    type: "boss",
+    score: 1000,
+    health: 12,
+    speed: 0.54,
+    damage: 2.4,
+    scale: 2.8,
+    color: new BABYLON.Color3(1, 0.15, 0.08),
+    height: 9.2,
+    assetKeys: ["alienGoliathBoss", "alienBossHorned"],
+    assetKey: "alienGoliathBoss"
+  },
+  {
+    type: "grunt",
+    score: 120,
+    health: 0,
+    speed: 0.95,
+    damage: 1.0,
+    scale: 1.35,
+    color: new BABYLON.Color3(0.85, 0.3, 0.95),
+    height: 4.2,
+    assetKeys: ["alienGruntGreen", "alien", "alienRunnerPurple"],
+    assetKey: "alienGruntGreen"
+  },
+  {
+    type: "runner",
+    score: 140,
+    health: -1,
+    speed: 1.4,
+    damage: 0.8,
+    scale: 1.25,
+    color: new BABYLON.Color3(1.0, 0.85, 0.15),
+    height: 3.6,
+    assetKeys: ["alienRunnerPurple", "alien", "alienGruntGreen"],
+    assetKey: "alienRunnerPurple"
+  }
 ];
 
 const ALIEN_VARIANT_BY_TYPE = Object.fromEntries(ALIEN_VARIANTS.map(variant => [variant.type, variant]));
@@ -29,7 +96,7 @@ export function createAlien(context, position, difficulty, variant = ALIEN_VARIA
   const root = new BABYLON.TransformNode("AlienRoot", scene);
   root.position = position.clone();
   if (variant.isFlying) {
-    root.position.y = 2.8 + Math.random() * 0.8;
+    root.position.y = 3.6 + Math.random() * 1.0;
   }
   root.health = Math.max(1, 2 + difficulty.healthBonus + variant.health);
   root.maxHealth = root.health;
@@ -46,11 +113,25 @@ export function createAlien(context, position, difficulty, variant = ALIEN_VARIA
   variantMat.diffuseColor = variant.color;
   variantMat.emissiveColor = variant.color.scale(0.38);
 
-  const modelAsset = loadedAssets[variant.assetKey]
-    || loadedAssets.alienSpitter
-    || loadedAssets.alienScoutWasp
-    || loadedAssets.alienGoliathBoss;
-  const clonedModel = { root: cloneLoadedAsset(modelAsset, `AlienModel_${variant.type}`, {
+  // Mix old and new 3D models seamlessly across spawns
+  const candidateKeys = variant.assetKeys || (variant.assetKey ? [variant.assetKey] : []);
+  const availableKeys = candidateKeys.filter(k => loadedAssets && loadedAssets[k]);
+  const chosenKey = availableKeys.length > 0
+    ? availableKeys[Math.floor(Math.random() * availableKeys.length)]
+    : (candidateKeys[0] || variant.assetKey);
+
+  const modelAsset = (loadedAssets && loadedAssets[chosenKey])
+    || (loadedAssets && loadedAssets[variant.assetKey])
+    || loadedAssets?.alien
+    || loadedAssets?.alienGruntGreen
+    || loadedAssets?.alienRunnerPurple
+    || loadedAssets?.alienBruteArmored
+    || loadedAssets?.alienBrutePurple
+    || loadedAssets?.alienBossHorned
+    || loadedAssets?.alienSpitter
+    || loadedAssets?.alienScoutWasp
+    || loadedAssets?.alienGoliathBoss;
+  const clonedModel = { root: cloneLoadedAsset(modelAsset, `AlienModel_${variant.type}_${chosenKey}`, {
     parent: root,
     position: new BABYLON.Vector3(0, 0, 0),
     rotation: new BABYLON.Vector3(0, 0, 0),
@@ -92,34 +173,34 @@ export function createAlien(context, position, difficulty, variant = ALIEN_VARIA
   }
 
   const body = BABYLON.MeshBuilder.CreateCapsule("AlienBody", {
-    radius: 0.45,
-    height: 1.8,
+    radius: 0.65,
+    height: 2.5,
     tessellation: 16
   }, scene);
   body.parent = root;
-  body.position.y = 1;
+  body.position.y = 1.35;
   body.scaling = new BABYLON.Vector3(variant.scale, variant.scale, variant.scale);
   body.material = variantMat;
   body.metadata = { alienRoot: root };
 
-  const head = BABYLON.MeshBuilder.CreateSphere("AlienHead", { diameter: 0.78 }, scene);
+  const head = BABYLON.MeshBuilder.CreateSphere("AlienHead", { diameter: 1.15 }, scene);
   head.parent = root;
-  head.position.y = 2.05;
+  head.position.y = 2.85;
   head.scaling = new BABYLON.Vector3(1.15 * variant.scale, variant.scale, variant.scale);
   head.material = variantMat;
   head.metadata = { alienRoot: root };
 
-  for (const x of [-0.18, 0.18]) {
-    const eye = BABYLON.MeshBuilder.CreateSphere("AlienEye", { diameter: 0.13 }, scene);
+  for (const x of [-0.25, 0.25]) {
+    const eye = BABYLON.MeshBuilder.CreateSphere("AlienEye", { diameter: 0.20 }, scene);
     eye.parent = root;
-    eye.position = new BABYLON.Vector3(x, 2.12, -0.34);
+    eye.position = new BABYLON.Vector3(x, 2.92, -0.48);
     eye.material = materials.alienEye;
   }
 
-  for (const x of [-0.52, 0.52]) {
-    const arm = BABYLON.MeshBuilder.CreateCylinder("AlienArm", { diameter: 0.12, height: 1.2 }, scene);
+  for (const x of [-0.75, 0.75]) {
+    const arm = BABYLON.MeshBuilder.CreateCylinder("AlienArm", { diameter: 0.18, height: 1.6 }, scene);
     arm.parent = root;
-    arm.position = new BABYLON.Vector3(x, 1.1, 0);
+    arm.position = new BABYLON.Vector3(x, 1.5, 0);
     arm.rotation.z = x > 0 ? -0.5 : 0.5;
     arm.scaling = new BABYLON.Vector3(variant.scale, variant.scale, variant.scale);
     arm.material = variantMat;
@@ -252,6 +333,8 @@ function getAlienMixLabel(difficulty) {
       if (type === "spitter") return "ACID SPITTERS";
       if (type === "wasp") return "FLYING WASPS";
       if (type === "brute") return "GOLIATH TITANS";
+      if (type === "grunt") return "BIO GRUNTS";
+      if (type === "runner") return "INSECTOID RUNNERS";
       return type.toUpperCase();
     })
     .join(" / ");
@@ -614,31 +697,31 @@ export function fireAlienProjectile(context, alien, projType = "grunt", customOf
   alien.attackAnimTimer = 1.0;
   alien.attackAnimType = projType;
 
-  const yOffset = alien.variant === "boss" ? 3.6 : alien.variant === "brute" ? 2.4 : alien.variant === "wasp" ? 0.2 : 1.7;
+  const yOffset = alien.variant === "boss" ? 5.8 : alien.variant === "brute" ? 3.8 : alien.variant === "wasp" ? 0.6 : 2.6;
   const origin = alien.position.add(new BABYLON.Vector3(0, yOffset, 0));
 
-  let diameter = 0.42;
+  let diameter = 0.58;
   let color = new BABYLON.Color3(0.2, 1, 0.25); // grunt neon green
   let damage = 8;
   let speed = 0.44;
 
   if (projType === "spitter") {
-    diameter = 0.55;
+    diameter = 0.74;
     color = new BABYLON.Color3(0.85, 0.25, 1); // spitter violet acid
     damage = 14;
     speed = 0.36;
   } else if (projType === "wasp") {
-    diameter = 0.44;
+    diameter = 0.58;
     color = new BABYLON.Color3(1, 0.82, 0.12); // wasp amber stinger
     damage = 10;
     speed = 0.52;
   } else if (projType === "brute") {
-    diameter = 0.68;
+    diameter = 0.95;
     color = new BABYLON.Color3(1, 0.45, 0.05); // brute molten orange
     damage = 20;
     speed = 0.32;
   } else if (projType === "boss") {
-    diameter = 0.75;
+    diameter = 1.25;
     color = new BABYLON.Color3(1, 0.08, 0.15); // boss crimson red
     damage = 16;
     speed = 0.46;
@@ -647,9 +730,7 @@ export function fireAlienProjectile(context, alien, projType = "grunt", customOf
   const projMesh = BABYLON.MeshBuilder.CreateSphere(`AlienProj_${Math.random()}`, { diameter }, scene);
   projMesh.position = origin.clone();
 
-  const mat = new BABYLON.StandardMaterial(`AlienProjMat_${Math.random()}`, scene);
-  mat.diffuseColor = color;
-  mat.emissiveColor = color.scale(1.4);
+  const mat = getProjectileMaterial(scene, projType, color);
   projMesh.material = mat;
 
   // Aim primarily at player, occasionally at base
@@ -685,6 +766,19 @@ export function fireAlienProjectile(context, alien, projType = "grunt", customOf
   playSound("alien_shoot");
 }
 
+const projMaterialCache = new Map();
+function getProjectileMaterial(scene, projType, color) {
+  let mat = projMaterialCache.get(projType);
+  if (!mat || mat.isDisposed()) {
+    mat = new BABYLON.StandardMaterial(`SharedAlienProjMat_${projType}`, scene);
+    mat.diffuseColor = color;
+    mat.emissiveColor = color.scale(1.4);
+    mat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+    projMaterialCache.set(projType, mat);
+  }
+  return mat;
+}
+
 export function updateAlienProjectiles(context, delta) {
   const { scene, camera, game } = context;
   if (!game.alienProjectiles || game.alienProjectiles.length === 0) return;
@@ -699,7 +793,6 @@ export function updateAlienProjectiles(context, delta) {
       createImpactEffect(scene, proj.mesh.position, false, (game.effectsScale || 1) * 0.8);
       createGroundAcidDecal(scene, proj.mesh.position, proj.projType, 1.4);
       proj.mesh.dispose();
-      proj.material.dispose();
       continue;
     }
 
@@ -713,7 +806,6 @@ export function updateAlienProjectiles(context, delta) {
       playSound("acid_sizzle");
       damagePlayer(context, proj.damage, proj.mesh.position);
       proj.mesh.dispose();
-      proj.material.dispose();
       continue;
     }
 
@@ -722,7 +814,6 @@ export function updateAlienProjectiles(context, delta) {
       createImpactEffect(scene, proj.mesh.position, true, (game.effectsScale || 1) * 1.2);
       damageBase(context, Math.max(1, Math.round(proj.damage * 0.7)));
       proj.mesh.dispose();
-      proj.material.dispose();
       continue;
     }
 
@@ -1173,45 +1264,45 @@ function findAnimationGroup(groups, kind) {
 const TAPETUM_CONFIGS = {
   spitter: {
     color: new BABYLON.Color3(1.0, 0.78, 0.12), // amber predatory flare
-    spread: 0.22,
-    height: 2.15,
-    forward: 0.38,
-    radius: 0.08
+    spread: 0.32,
+    height: 3.20,
+    forward: 0.55,
+    radius: 0.12
   },
   wasp: {
     color: new BABYLON.Color3(0.12, 0.90, 1.0), // electric sapphire cyan flare
-    spread: 0.16,
-    height: 0.65,
-    forward: 0.32,
-    radius: 0.065
+    spread: 0.26,
+    height: 1.10,
+    forward: 0.48,
+    radius: 0.10
   },
   brute: {
     color: new BABYLON.Color3(1.0, 0.16, 0.06), // demonic blood crimson
-    spread: 0.38,
-    height: 3.10,
-    forward: 0.54,
-    radius: 0.12
+    spread: 0.55,
+    height: 4.80,
+    forward: 0.82,
+    radius: 0.18
   },
   boss: {
     color: new BABYLON.Color3(1.0, 0.06, 0.02), // hellfire blazing red-orange
-    spread: 0.54,
-    height: 4.35,
-    forward: 0.72,
-    radius: 0.16
+    spread: 0.80,
+    height: 6.90,
+    forward: 1.15,
+    radius: 0.26
   },
   grunt: {
     color: new BABYLON.Color3(0.72, 1.0, 0.15), // toxic green-amber
-    spread: 0.20,
-    height: 2.05,
-    forward: 0.35,
-    radius: 0.075
+    spread: 0.30,
+    height: 2.85,
+    forward: 0.50,
+    radius: 0.11
   },
   runner: {
     color: new BABYLON.Color3(0.85, 0.25, 1.0), // violet-cyan
-    spread: 0.16,
-    height: 0.65,
-    forward: 0.32,
-    radius: 0.065
+    spread: 0.25,
+    height: 1.05,
+    forward: 0.48,
+    radius: 0.095
   }
 };
 

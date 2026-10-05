@@ -1,35 +1,44 @@
 import { saveGame } from "./saveSystem.js";
 
+export function isMobileDevice() {
+  return Boolean(
+    window.Capacitor?.isNativePlatform?.()
+    || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    || (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(pointer: coarse)").matches)
+  );
+}
+
 const PRESETS = {
   low: {
     label: "Low",
-    hardwareScaling: 1.75,
-    effectsScale: 0.55,
+    hardwareScaling: 1.85,
+    effectsScale: 0.50,
     fogDensity: 0.008
   },
   medium: {
     label: "Medium",
-    hardwareScaling: 1.3,
-    effectsScale: 0.85,
+    hardwareScaling: 1.40,
+    effectsScale: 0.80,
     fogDensity: 0.01
   },
   high: {
     label: "High",
-    hardwareScaling: 1,
-    effectsScale: 1.15,
+    hardwareScaling: 1.05,
+    effectsScale: 1.10,
     fogDensity: 0.012
   },
   ultra: {
     label: "Ultra 120Hz",
     hardwareScaling: 0.85,
-    effectsScale: 1.4,
+    effectsScale: 1.35,
     fogDensity: 0.012
   }
 };
 
 export function setupGraphicsQuality(context) {
   const { game, ui } = context;
-  applyGraphicsQuality(context, game.graphicsQuality || "medium", false);
+  const initialQuality = game.graphicsQuality || (isMobileDevice() ? "medium" : "high");
+  applyGraphicsQuality(context, initialQuality, false);
 
   ui.graphicsButtons?.forEach(button => {
     button.addEventListener("click", () => {
@@ -42,14 +51,19 @@ export function setupGraphicsQuality(context) {
 export function applyGraphicsQuality(context, quality, shouldSave = true) {
   const preset = PRESETS[quality] || PRESETS.medium;
   const { engine, scene, game, ui } = context;
+  const isMobile = isMobileDevice();
 
   game.graphicsQuality = quality in PRESETS ? quality : "medium";
   game.effectsScale = preset.effectsScale;
-  engine.setHardwareScalingLevel(preset.hardwareScaling);
+
+  // On mobile, ensure hardware scaling keeps fillrate locked at 60 FPS
+  const effectiveScaling = isMobile ? Math.max(1.35, preset.hardwareScaling) : preset.hardwareScaling;
+  engine.setHardwareScalingLevel(effectiveScaling);
   scene.fogDensity = preset.fogDensity;
 
   if (scene.glowLayer) {
-    scene.glowLayer.isEnabled = quality !== "low";
+    // Disable expensive full-screen blur pass on mobile to prevent GPU fill-rate throttling
+    scene.glowLayer.isEnabled = !isMobile && quality !== "low";
     scene.glowLayer.intensity = quality === "high" ? 0.95 : 0.7;
   }
 

@@ -32,26 +32,26 @@ export const STAGE_THREAT_PLANS = {
   1: {
     name: "Rookie",
     waves: "1-3",
-    briefing: "Initial assault: Venom Acid Spitters and aerial Scout Wasps attacking the perimeter.",
-    weights: { spitter: 55, wasp: 45, brute: 0 }
+    briefing: "Initial assault: Classic Grunts, Acid Spitters, and aerial Scout Wasps attacking the perimeter.",
+    weights: { grunt: 30, spitter: 30, wasp: 25, runner: 15, brute: 0 }
   },
   2: {
     name: "Soldier",
     waves: "4-6",
-    briefing: "Heavy attack: armored Goliath Titans entering the arena with swarms of Spitters and Wasps.",
-    weights: { spitter: 35, wasp: 35, brute: 30 }
+    briefing: "Heavy attack: Armored and Purple Brutes entering the arena with swarms of Spitters and Wasps.",
+    weights: { brute: 25, grunt: 25, spitter: 25, wasp: 15, runner: 10 }
   },
   3: {
     name: "Veteran",
     waves: "7-10",
-    briefing: "Fierce invasion: Goliath Titans leading tactical squadrons of Spitters and Wasps.",
-    weights: { spitter: 30, wasp: 35, brute: 35 }
+    briefing: "Fierce invasion: Behemoth Brutes leading tactical squadrons of classic and new alien bio-forms.",
+    weights: { brute: 35, spitter: 25, wasp: 20, grunt: 10, runner: 10 }
   },
   4: {
     name: "Nightmare",
     waves: "11+",
-    briefing: "Apocalyptic swarm: endless Goliath Titans, flying Wasps, and lethal mortar Spitters.",
-    weights: { spitter: 25, wasp: 35, brute: 40 }
+    briefing: "Apocalyptic swarm: Colossal Juggernauts, flying Wasps, and lethal mortar Spitters.",
+    weights: { brute: 40, spitter: 25, wasp: 20, runner: 15 }
   }
 };
 

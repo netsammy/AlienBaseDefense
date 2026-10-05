@@ -1,5 +1,6 @@
 import { getWaveDifficulty } from "./difficulty.js";
 import { STAGES } from "./stages.js";
+import { isMobileDevice } from "./graphics.js";
 
 export function getUI() {
   return {
@@ -334,9 +335,17 @@ export function showDamageIndicator(attackerPos, camera) {
   }, 70);
 }
 
+let lastAlienMapDraw = 0;
+
 export function drawAlienMap(ui, game, camera) {
   const canvas = ui.alienMapCanvas;
   if (!canvas || !camera) return;
+
+  const now = performance.now();
+  const isMobile = isMobileDevice();
+  // Throttle radar redraws on mobile to ~22 FPS (45ms) to save CPU/GPU cycles
+  if (isMobile && now - lastAlienMapDraw < 45) return;
+  lastAlienMapDraw = now;
 
   const ctx = canvas.getContext("2d");
   const size = canvas.width;
@@ -367,7 +376,7 @@ export function drawAlienMap(ui, game, camera) {
   ctx.stroke();
 
   const fewAliensLeft = game.aliens.length > 0 && game.aliens.length <= 3;
-  const pulse = Math.sin(performance.now() * 0.008) * 0.5 + 0.5;
+  const pulse = Math.sin(now * 0.008) * 0.5 + 0.5;
 
   for (const alien of game.aliens) {
     if (!alien || alien.dead) continue;
@@ -376,15 +385,17 @@ export function drawAlienMap(ui, game, camera) {
     const color = getAlienMapColor(alien.variant);
     const dotSize = alien.variant === "boss" ? 5.8 : alien.variant === "brute" ? 4.6 : 3.8;
 
-    ctx.shadowColor = color;
-    ctx.shadowBlur = alien.variant === "boss" ? 14 : 8;
+    if (!isMobile) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = alien.variant === "boss" ? 14 : 8;
+    }
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(x, y, dotSize, 0, Math.PI * 2);
     ctx.fill();
 
     if (fewAliensLeft) {
-      ctx.shadowBlur = 0;
+      if (!isMobile) ctx.shadowBlur = 0;
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -402,7 +413,7 @@ export function drawAlienMap(ui, game, camera) {
     }
   }
 
-  drawPlayerMarker(ctx, camera, scale);
+  drawPlayerMarker(ctx, camera, scale, isMobile);
   ctx.restore();
 }
 
@@ -430,7 +441,7 @@ function drawRing(ctx, radius, color, width) {
   ctx.stroke();
 }
 
-function drawPlayerMarker(ctx, camera, scale) {
+function drawPlayerMarker(ctx, camera, scale, isMobile = false) {
   const x = clamp(camera.position.x * scale, -72, 72);
   const y = clamp(camera.position.z * scale, -72, 72);
   const heading = camera.rotation.y;
@@ -438,8 +449,10 @@ function drawPlayerMarker(ctx, camera, scale) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(heading);
-  ctx.shadowColor = "rgba(255, 255, 255, 0.95)";
-  ctx.shadowBlur = 8;
+  if (!isMobile) {
+    ctx.shadowColor = "rgba(255, 255, 255, 0.95)";
+    ctx.shadowBlur = 8;
+  }
   ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
   ctx.beginPath();
   ctx.moveTo(0, -7);

@@ -12,7 +12,7 @@ import { createStarterTowers, refreshTowerModels, updateTowers } from "./towers.
 import { loadSave, saveGame } from "./saveSystem.js";
 import { setupShop, refreshShop } from "./shop.js";
 import { setupStageSelect, STAGES } from "./stages.js";
-import { setupGraphicsQuality } from "./graphics.js";
+import { setupGraphicsQuality, isMobileDevice } from "./graphics.js";
 import { playSound, stopBossMusic, updateAudioListener, broadcastRadioComms } from "./sound.js";
 import { requestPointerLockSafely } from "./pointerLock.js";
 import { showRewardedContinueIfAvailable } from "./adBridge.js";
@@ -26,6 +26,12 @@ const FIRST_RUN_ASSET_KEYS = [
   "plasmaCannon",
   "turretGatlingHeavy",
   "turretCryoBeam",
+  "alien",
+  "alienGruntGreen",
+  "alienRunnerPurple",
+  "alienBrutePurple",
+  "alienBruteArmored",
+  "alienBossHorned",
   "alienSpitter",
   "alienScoutWasp",
   "alienGoliathBoss",
@@ -176,17 +182,19 @@ function createPerimeterFloodlights(scene) {
     lens.rotation.x = 0.35;
     lens.material = lampMat;
 
-    const spot = new BABYLON.SpotLight(
-      `FloodSpot_${idx}`,
-      new BABYLON.Vector3(c.x, 7.2, c.z),
-      new BABYLON.Vector3(-c.x, -5, -c.z).normalize(),
-      Math.PI / 3.2,
-      24,
-      scene
-    );
-    spot.diffuse = new BABYLON.Color3(0.82, 0.9, 1);
-    spot.intensity = 0.85;
-    spot.range = 45;
+    if (!isMobileDevice()) {
+      const spot = new BABYLON.SpotLight(
+        `FloodSpot_${idx}`,
+        new BABYLON.Vector3(c.x, 7.2, c.z),
+        new BABYLON.Vector3(-c.x, -5, -c.z).normalize(),
+        Math.PI / 3.2,
+        24,
+        scene
+      );
+      spot.diffuse = new BABYLON.Color3(0.82, 0.9, 1);
+      spot.intensity = 0.85;
+      spot.range = 45;
+    }
   });
 }
 
@@ -238,16 +246,18 @@ function createEnvironment(scene, game, materials) {
   scene.fogColor = new BABYLON.Color3(0.012, 0.018, 0.032);
   scene.fogDensity = 0.011;
 
-  // Cinematic Sci-Fi Bloom Glow Layer
-  try {
-    const glow = new BABYLON.GlowLayer("glow", scene, {
-      mainTextureRatio: 0.5,
-      blurKernelSize: 24
-    });
-    glow.intensity = 0.22;
-    scene.glowLayer = glow;
-  } catch (e) {
-    console.warn("GlowLayer disabled:", e);
+  // Cinematic Sci-Fi Bloom Glow Layer (desktop only to prevent mobile GPU fill-rate throttling)
+  if (!isMobileDevice()) {
+    try {
+      const glow = new BABYLON.GlowLayer("glow", scene, {
+        mainTextureRatio: 0.5,
+        blurKernelSize: 24
+      });
+      glow.intensity = 0.22;
+      scene.glowLayer = glow;
+    } catch (e) {
+      console.warn("GlowLayer disabled:", e);
+    }
   }
 
   const light = new BABYLON.HemisphericLight("SkyLight", new BABYLON.Vector3(0, 1, 0), scene);
@@ -385,11 +395,14 @@ function updateStageWeather(context) {
   const stage = STAGES[game.selectedStage];
   const weather = stage?.weather || "smog";
 
+  const isMobile = isMobileDevice();
+
   if (weather === "rain") {
     scene.fogColor = new BABYLON.Color3(0.015, 0.022, 0.038);
     scene.fogDensity = 0.014;
 
-    const rain = new BABYLON.ParticleSystem("RainWeather", 1200, scene);
+    const rainCap = isMobile ? 180 : 1200;
+    const rain = new BABYLON.ParticleSystem("RainWeather", rainCap, scene);
     rain.emitter = new BABYLON.Vector3(0, 22, 0);
     rain.minEmitBox = new BABYLON.Vector3(-28, 0, -28);
     rain.maxEmitBox = new BABYLON.Vector3(28, 0, 28);
@@ -399,7 +412,7 @@ function updateStageWeather(context) {
     rain.maxSize = 0.14;
     rain.minLifeTime = 0.65;
     rain.maxLifeTime = 0.85;
-    rain.emitRate = 800;
+    rain.emitRate = isMobile ? 120 : 800;
     rain.gravity = new BABYLON.Vector3(2.5, -42, 1.5);
     rain.direction1 = new BABYLON.Vector3(1, -1, 0.5);
     rain.direction2 = new BABYLON.Vector3(1.5, -1, 1);
@@ -427,7 +440,8 @@ function updateStageWeather(context) {
     scene.fogColor = new BABYLON.Color3(0.048, 0.028, 0.014);
     scene.fogDensity = 0.024;
 
-    const sand = new BABYLON.ParticleSystem("SandWeather", 900, scene);
+    const sandCap = isMobile ? 140 : 900;
+    const sand = new BABYLON.ParticleSystem("SandWeather", sandCap, scene);
     sand.emitter = new BABYLON.Vector3(-26, 6, 0);
     sand.minEmitBox = new BABYLON.Vector3(0, -6, -28);
     sand.maxEmitBox = new BABYLON.Vector3(0, 14, 28);
@@ -437,7 +451,7 @@ function updateStageWeather(context) {
     sand.maxSize = 0.35;
     sand.minLifeTime = 1.4;
     sand.maxLifeTime = 2.2;
-    sand.emitRate = 500;
+    sand.emitRate = isMobile ? 90 : 500;
     sand.gravity = new BABYLON.Vector3(26, -2.5, 0);
     sand.start();
     currentWeatherParticleSystem = sand;
@@ -446,7 +460,8 @@ function updateStageWeather(context) {
     scene.fogColor = new BABYLON.Color3(0.018, 0.026, 0.038);
     scene.fogDensity = 0.013;
 
-    const snow = new BABYLON.ParticleSystem("SnowWeather", 800, scene);
+    const snowCap = isMobile ? 120 : 800;
+    const snow = new BABYLON.ParticleSystem("SnowWeather", snowCap, scene);
     snow.emitter = new BABYLON.Vector3(0, 18, 0);
     snow.minEmitBox = new BABYLON.Vector3(-28, 0, -28);
     snow.maxEmitBox = new BABYLON.Vector3(28, 0, 28);
@@ -456,7 +471,7 @@ function updateStageWeather(context) {
     snow.maxSize = 0.22;
     snow.minLifeTime = 2.2;
     snow.maxLifeTime = 3.4;
-    snow.emitRate = 350;
+    snow.emitRate = isMobile ? 60 : 350;
     snow.gravity = new BABYLON.Vector3(1.2, -6.5, 0.8);
     snow.start();
     currentWeatherParticleSystem = snow;
@@ -465,7 +480,8 @@ function updateStageWeather(context) {
     scene.fogColor = new BABYLON.Color3(0.028, 0.022, 0.016);
     scene.fogDensity = 0.011;
 
-    const smog = new BABYLON.ParticleSystem("SmogWeather", 400, scene);
+    const smogCap = isMobile ? 60 : 400;
+    const smog = new BABYLON.ParticleSystem("SmogWeather", smogCap, scene);
     smog.emitter = new BABYLON.Vector3(0, 4, 0);
     smog.minEmitBox = new BABYLON.Vector3(-26, -3, -26);
     smog.maxEmitBox = new BABYLON.Vector3(26, 12, 26);
@@ -475,7 +491,7 @@ function updateStageWeather(context) {
     smog.maxSize = 0.18;
     smog.minLifeTime = 3.0;
     smog.maxLifeTime = 5.0;
-    smog.emitRate = 90;
+    smog.emitRate = isMobile ? 30 : 90;
     smog.gravity = new BABYLON.Vector3(0.4, 0.8, 0.3);
     smog.start();
     currentWeatherParticleSystem = smog;
@@ -873,7 +889,7 @@ function createAlienBloodMoon(scene) {
 
 function createAlienBioMist(scene) {
   // Spooky ground bio-mist / alien spores drifting across the dark tarmac
-  const sporeCount = 48;
+  const sporeCount = isMobileDevice() ? 12 : 48;
   const sporeMat = new BABYLON.StandardMaterial("BioSporeMat", scene);
   sporeMat.emissiveColor = new BABYLON.Color3(0.15, 0.95, 0.5);
   sporeMat.diffuseColor = new BABYLON.Color3(0.1, 0.8, 0.4);
@@ -1137,19 +1153,21 @@ function createTacticalFlashlight(scene, camera, gunRoot) {
   const innerCoreCone = new BABYLON.TransformNode("FlashlightCoreBeam", scene);
   innerCoreCone.parent = camera;
 
-  // 4. Real-Time Dynamic Flashlight Shadows
+  // 4. Real-Time Dynamic Flashlight Shadows (disabled on mobile to avoid high-DPI fill rate bottlenecks)
   let shadowGenerator = null;
-  try {
-    const shadowMapSize = 512;
-    shadowGenerator = new BABYLON.ShadowGenerator(shadowMapSize, flashlight);
-    shadowGenerator.useBlurExponentialShadowMap = true;
-    shadowGenerator.blurKernel = 8;
-    shadowGenerator.depthScale = 45;
-    shadowGenerator.bias = 0.001;
-    shadowGenerator.normalBias = 0.01;
-    shadowGenerator.setDarkness(0.55);
-  } catch (e) {
-    console.warn("Flashlight ShadowGenerator skipped:", e);
+  if (!isMobileDevice()) {
+    try {
+      const shadowMapSize = 512;
+      shadowGenerator = new BABYLON.ShadowGenerator(shadowMapSize, flashlight);
+      shadowGenerator.useBlurExponentialShadowMap = true;
+      shadowGenerator.blurKernel = 8;
+      shadowGenerator.depthScale = 45;
+      shadowGenerator.bias = 0.001;
+      shadowGenerator.normalBias = 0.01;
+      shadowGenerator.setDarkness(0.55);
+    } catch (e) {
+      console.warn("Flashlight ShadowGenerator skipped:", e);
+    }
   }
 
   return {

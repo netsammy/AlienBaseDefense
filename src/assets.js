@@ -1,6 +1,7 @@
 import * as BABYLON from "@babylonjs/core";
 import "@babylonjs/core/Loading/sceneLoader";
 import "@babylonjs/loaders/glTF";
+import { isMobileDevice } from "./graphics.js";
 
 const MODEL_LOAD_TIMEOUT_MS = 45000;
 const MOBILE_MODEL_LOAD_TIMEOUT_MS = 18000;
@@ -62,15 +63,17 @@ export const CORE_ASSET_KEYS = [
   "fpsHeavyShotgun",
   "plasmaCannon",
   "turretGatlingHeavy",
+  "alien",
+  "alienGruntGreen",
+  "alienRunnerPurple",
   "alienSpitter",
   "alienScoutWasp",
   "alienGoliathBoss"
 ];
 
 export const BACKGROUND_ASSET_KEYS = [
-  "alienGruntGreen",
-  "alienRunnerPurple",
   "alienBruteArmored",
+  "alienBrutePurple",
   "alienBossHorned",
   "fpsRocketLauncher",
   "turretCryoBeam",
@@ -95,6 +98,11 @@ export async function loadModelAsset(scene, assets, key) {
     assets[key] = null;
     return assets[key];
   }
+  // On mobile devices, skip loading massive multi-megabyte GLBs that cause memory spikes and main-thread hangs
+  if (isMobileDevice() && (key === "scifiFusionCore" || key === "turretCryoBeam")) {
+    assets[key] = null;
+    return null;
+  }
   const path = ASSET_PATHS[key];
   const pendingLoad = path ? tryLoadModel(scene, path) : Promise.resolve(null);
   pendingLoads.set(key, pendingLoad);
@@ -109,13 +117,30 @@ function getPendingLoads(assets) {
 }
 
 export async function loadModelAssets(scene, assets, keys, options = {}) {
+  const isMobile = isMobileDevice();
   const uniqueKeys = [...new Set(keys)].filter(Boolean);
   let completed = 0;
-  await Promise.all(uniqueKeys.map(async key => {
-    await loadModelAsset(scene, assets, key);
-    completed++;
-    options.onProgress?.({ completed, total: uniqueKeys.length, key });
-  }));
+
+  if (isMobile) {
+    // Sequentially load on mobile with small pauses to avoid locking the UI/render loop
+    for (const key of uniqueKeys) {
+      if (key === "scifiFusionCore" || key === "turretCryoBeam") {
+        completed++;
+        options.onProgress?.({ completed, total: uniqueKeys.length, key });
+        continue;
+      }
+      await loadModelAsset(scene, assets, key);
+      completed++;
+      options.onProgress?.({ completed, total: uniqueKeys.length, key });
+      await new Promise(r => setTimeout(r, 60));
+    }
+  } else {
+    await Promise.all(uniqueKeys.map(async key => {
+      await loadModelAsset(scene, assets, key);
+      completed++;
+      options.onProgress?.({ completed, total: uniqueKeys.length, key });
+    }));
+  }
   return assets;
 }
 

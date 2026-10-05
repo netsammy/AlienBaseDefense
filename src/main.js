@@ -7,6 +7,7 @@ import { setupAdsIfAvailable, showRewardedDoubleLootIfAvailable } from "./adBrid
 import { setupIAP } from "./iap.js";
 import { initRetention, claimDailyReward, claimMissionReward } from "./retention.js";
 import { setupSettingsModal } from "./settings.js";
+import { isMobileDevice } from "./graphics.js";
 
 const canvas = document.getElementById("renderCanvas");
 const ui = getUI();
@@ -15,7 +16,16 @@ if (!supportsWebGL()) {
   showCompatibilityError();
 } else {
   if (ui.loadingOverlay) ui.loadingOverlay.style.display = "none";
-  const engine = new BABYLON.Engine(canvas, true);
+  const isMobile = isMobileDevice();
+  const engine = new BABYLON.Engine(canvas, !isMobile, {
+    preserveDrawingBuffer: false,
+    stencil: false,
+    powerPreference: "high-performance",
+    doNotHandleContextLost: false
+  }, true);
+  if (isMobile) {
+    engine.setHardwareScalingLevel(1.4);
+  }
   const context = createGameScene({ canvas, engine, ui });
   window.__alienBaseDefense = context;
 
