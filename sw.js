@@ -1,4 +1,4 @@
-const CACHE_NAME = "alien-base-defense-v1";
+const CACHE_NAME = "alien-base-defense-v1.1.1";
 const APP_SHELL = ["./", "manifest.webmanifest", "icon.svg", "privacy.html"];
 
 function scopedUrl(path) {
