@@ -1,5 +1,5 @@
 import { getWaveDifficulty } from "./difficulty.js";
-import { STAGES } from "./stages.js";
+import { STAGES, getStageData } from "./stages.js";
 import { isMobileDevice } from "./graphics.js";
 
 export function getUI() {
@@ -41,6 +41,7 @@ export function getUI() {
     startButton: document.getElementById("startButton"),
     restartButton: document.getElementById("restartButton"),
     continueButton: document.getElementById("continueButton"),
+    alienMapPanel: document.getElementById("alienMapPanel"),
     alienMapCanvas: document.getElementById("alienMapCanvas"),
     damageFlash: document.getElementById("damageFlash"),
     visorSplatter: document.getElementById("visorSplatter"),
@@ -120,14 +121,18 @@ export function updateUI(ui, game) {
   if (ui.difficultyLabel) ui.difficultyLabel.textContent = difficulty.modeLabel;
   if (ui.stage) ui.stage.textContent = difficulty.stage;
   if (ui.stageName) ui.stageName.textContent = difficulty.name;
-  const stageData = STAGES[game.selectedStage];
+  const stageData = getStageData(game.selectedStage || game.stage || 1);
   if (ui.stageLabel) ui.stageLabel.textContent = stageData ? stageData.label : `Sector ${game.stage || 1}`;
   if (ui.waveLabel) {
-    const waveInStage = ((game.wave - 1) % 3) + 1;
-    ui.waveLabel.textContent = waveInStage === 3 ? "3 / 3 (BOSS CLIMAX)" : `${waveInStage} / 3`;
+    if (game.isEndless) {
+      ui.waveLabel.textContent = `ENDLESS WAVE ${game.wave}`;
+    } else {
+      const waveInStage = (((game.wave || 1) - 1) % 3) + 1;
+      ui.waveLabel.textContent = waveInStage === 3 ? "WAVE 3 OF 3 (BOSS CLIMAX)" : `WAVE ${waveInStage} OF 3`;
+    }
   }
   if (ui.wave) ui.wave.textContent = game.wave;
-  if (ui.aliensLeft) ui.aliensLeft.textContent = game.aliens.length;
+  if (ui.aliensLeft) ui.aliensLeft.textContent = `${game.aliens.length}`;
   if (ui.score) ui.score.textContent = game.score;
   if (ui.bestScore) ui.bestScore.textContent = game.bestScore;
   if (ui.coins) ui.coins.textContent = game.coins;
@@ -238,16 +243,23 @@ export function updateUI(ui, game) {
 }
 
 function syncMobileControls(ui, game) {
+  const overlayOpen = ui.startOverlay?.style?.display === "flex"
+    || ui.pauseOverlay?.style?.display === "flex"
+    || ui.controlsOverlay?.style?.display === "flex"
+    || ui.rewardOverlay?.style?.display === "flex"
+    || (ui.stageClearOverlay && ui.stageClearOverlay.style.display === "flex")
+    || (ui.defeatOverlay && ui.defeatOverlay.style.display === "flex")
+    || (document.getElementById("settingsOverlay")?.style?.display === "flex");
+
+  if (ui.message) {
+    ui.message.style.display = overlayOpen ? "none" : "block";
+  }
+
   if (!ui.mobileControls) return;
   const gameplayActive = game.started
     && !game.paused
     && !game.gameOver
-    && ui.startOverlay.style.display !== "flex"
-    && ui.pauseOverlay.style.display !== "flex"
-    && ui.controlsOverlay.style.display !== "flex"
-    && ui.rewardOverlay.style.display !== "flex"
-    && (!ui.stageClearOverlay || ui.stageClearOverlay.style.display !== "flex")
-    && (!ui.defeatOverlay || ui.defeatOverlay.style.display !== "flex");
+    && !overlayOpen;
 
   ui.mobileControls.classList.toggle("is-gameplay-active", gameplayActive);
   document.body.classList.toggle("show-touch-controls", Boolean(game.showTouchControls));
@@ -347,74 +359,80 @@ export function drawAlienMap(ui, game, camera) {
   if (isMobile && now - lastAlienMapDraw < 45) return;
   lastAlienMapDraw = now;
 
-  const ctx = canvas.getContext("2d");
-  const size = canvas.width;
-  const center = size / 2;
-  const radarRadius = center - 10;
-  const worldRadius = game.arenaRadius + 8;
-  const scale = radarRadius / worldRadius;
+  try {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const size = canvas.width || 168;
+    const center = size / 2;
+    const radarRadius = center - 10;
+    const worldRadius = (game.arenaRadius || 28) + 8;
+    const scale = radarRadius / worldRadius;
 
-  ctx.clearRect(0, 0, size, size);
-  ctx.save();
-  ctx.translate(center, center);
+    ctx.clearRect(0, 0, size, size);
+    ctx.save();
+    ctx.translate(center, center);
 
-  ctx.fillStyle = "rgba(0, 12, 22, 0.92)";
-  ctx.beginPath();
-  ctx.arc(0, 0, radarRadius + 6, 0, Math.PI * 2);
-  ctx.fill();
-
-  drawRing(ctx, game.arenaRadius * scale, "rgba(0, 220, 255, 0.68)", 2);
-  drawRing(ctx, game.baseRadius * scale, "rgba(255, 40, 40, 0.72)", 2);
-
-  ctx.strokeStyle = "rgba(191, 246, 255, 0.18)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(-radarRadius, 0);
-  ctx.lineTo(radarRadius, 0);
-  ctx.moveTo(0, -radarRadius);
-  ctx.lineTo(0, radarRadius);
-  ctx.stroke();
-
-  const fewAliensLeft = game.aliens.length > 0 && game.aliens.length <= 3;
-  const pulse = Math.sin(now * 0.008) * 0.5 + 0.5;
-
-  for (const alien of game.aliens) {
-    if (!alien || alien.dead) continue;
-    const x = clamp(alien.position.x * scale, -radarRadius, radarRadius);
-    const y = clamp(alien.position.z * scale, -radarRadius, radarRadius);
-    const color = getAlienMapColor(alien.variant);
-    const dotSize = alien.variant === "boss" ? 5.8 : alien.variant === "brute" ? 4.6 : 3.8;
-
-    if (!isMobile) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur = alien.variant === "boss" ? 14 : 8;
-    }
-    ctx.fillStyle = color;
+    ctx.fillStyle = "rgba(0, 12, 22, 0.92)";
     ctx.beginPath();
-    ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+    ctx.arc(0, 0, radarRadius + 6, 0, Math.PI * 2);
     ctx.fill();
 
-    if (fewAliensLeft) {
-      if (!isMobile) ctx.shadowBlur = 0;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(x, y, dotSize + 3 + pulse * 4, 0, Math.PI * 2);
-      ctx.stroke();
+    drawRing(ctx, (game.arenaRadius || 28) * scale, "rgba(0, 220, 255, 0.68)", 2);
+    drawRing(ctx, (game.baseRadius || 8) * scale, "rgba(255, 40, 40, 0.72)", 2);
 
-      const angle = Math.atan2(y, x);
-      const beaconR = radarRadius - 2;
-      const bx = Math.cos(angle) * beaconR;
-      const by = Math.sin(angle) * beaconR;
+    ctx.strokeStyle = "rgba(191, 246, 255, 0.18)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-radarRadius, 0);
+    ctx.lineTo(radarRadius, 0);
+    ctx.moveTo(0, -radarRadius);
+    ctx.lineTo(0, radarRadius);
+    ctx.stroke();
+
+    const aliens = game.aliens || [];
+    const fewAliensLeft = aliens.length > 0 && aliens.length <= 3;
+    const pulse = Math.sin(now * 0.008) * 0.5 + 0.5;
+
+    for (const alien of aliens) {
+      if (!alien || alien.dead || !alien.position) continue;
+      const x = clamp(alien.position.x * scale, -radarRadius, radarRadius);
+      const y = clamp(-alien.position.z * scale, -radarRadius, radarRadius);
+      const color = getAlienMapColor(alien.variant);
+      const dotSize = alien.variant === "boss" ? 5.8 : alien.variant === "brute" ? 4.6 : 3.8;
+
+      if (!isMobile) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = alien.variant === "boss" ? 14 : 8;
+      }
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(bx, by, 2.5 + pulse * 1.5, 0, Math.PI * 2);
+      ctx.arc(x, y, dotSize, 0, Math.PI * 2);
       ctx.fill();
-    }
-  }
 
-  drawPlayerMarker(ctx, camera, scale, isMobile);
-  ctx.restore();
+      if (fewAliensLeft) {
+        if (!isMobile) ctx.shadowBlur = 0;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, dotSize + 3 + pulse * 4, 0, Math.PI * 2);
+        ctx.stroke();
+
+        const angle = Math.atan2(y, x);
+        const beaconR = radarRadius - 2;
+        const bx = Math.cos(angle) * beaconR;
+        const by = Math.sin(angle) * beaconR;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(bx, by, 2.5 + pulse * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    drawPlayerMarker(ctx, camera, scale, isMobile);
+    ctx.restore();
+  } catch (err) {
+    // Graceful fallback
+  }
 }
 
 export function setWeaponStatus(ui, game, status, durationMs = 700) {
@@ -443,7 +461,7 @@ function drawRing(ctx, radius, color, width) {
 
 function drawPlayerMarker(ctx, camera, scale, isMobile = false) {
   const x = clamp(camera.position.x * scale, -72, 72);
-  const y = clamp(camera.position.z * scale, -72, 72);
+  const y = clamp(-camera.position.z * scale, -72, 72);
   const heading = camera.rotation.y;
 
   ctx.save();

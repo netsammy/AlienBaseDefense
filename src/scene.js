@@ -11,7 +11,7 @@ import { updateBaseShieldFeedback, updateAlienGibs, updateGroundDecals, updateCa
 import { createStarterTowers, refreshTowerModels, updateTowers } from "./towers.js";
 import { loadSave, saveGame } from "./saveSystem.js";
 import { setupShop, refreshShop } from "./shop.js";
-import { setupStageSelect, STAGES } from "./stages.js";
+import { setupStageSelect, STAGES, getStageData, getStageNumber } from "./stages.js";
 import { setupGraphicsQuality, isMobileDevice } from "./graphics.js";
 import { playSound, stopBossMusic, updateAudioListener, broadcastRadioComms } from "./sound.js";
 import { requestPointerLockSafely } from "./pointerLock.js";
@@ -48,16 +48,16 @@ function createProceduralGroundTexture(scene, game) {
   const texture = new BABYLON.DynamicTexture("GroundTarmacTexture", size, scene, false);
   const ctx = texture.getContext();
 
-  // Dark asphalt base
-  ctx.fillStyle = "#0d1015";
+  // Bright tactical concrete/tarmac base (high-visibility for alien silhouettes)
+  ctx.fillStyle = "#78859c";
   ctx.fillRect(0, 0, size, size);
 
-  // Gritty asphalt noise / tarmac flecks
+  // Gritty asphalt noise / tarmac flecks in bright tones
   for (let i = 0; i < 24000; i++) {
     const x = Math.random() * size;
     const y = Math.random() * size;
-    const shade = Math.floor(18 + Math.random() * 30);
-    ctx.fillStyle = `rgb(${shade}, ${shade + 2}, ${shade + 5})`;
+    const shade = Math.floor(115 + Math.random() * 35);
+    ctx.fillStyle = `rgb(${shade}, ${shade + 4}, ${shade + 10})`;
     ctx.fillRect(x, y, 1 + Math.random() * 2, 1 + Math.random() * 2);
   }
 
@@ -65,8 +65,8 @@ function createProceduralGroundTexture(scene, game) {
   const cy = size / 2;
   const pxPerMeter = size / 90;
 
-  // Sci-fi hexagonal circuit grid (subtle neon glow)
-  ctx.strokeStyle = "rgba(0, 190, 255, 0.08)";
+  // Sci-fi hexagonal circuit grid (crisp clear lines)
+  ctx.strokeStyle = "rgba(0, 210, 255, 0.22)";
   ctx.lineWidth = 1.5;
   const hexRadius = 42;
   for (let gx = 0; gx < size; gx += hexRadius * 1.5) {
@@ -201,18 +201,18 @@ function createPerimeterFloodlights(scene) {
 function createMaterials(scene, game) {
   const ground = new BABYLON.StandardMaterial("GroundMat", scene);
   ground.diffuseTexture = createProceduralGroundTexture(scene, game);
-  ground.specularColor = new BABYLON.Color3(0.22, 0.25, 0.32);
+  ground.specularColor = new BABYLON.Color3(0.35, 0.38, 0.45);
   ground.specularPower = 32;
 
   const zone = new BABYLON.StandardMaterial("DefenseZoneMat", scene);
-  zone.diffuseColor = new BABYLON.Color3(0, 0.7, 1);
-  zone.emissiveColor = new BABYLON.Color3(0, 0.25, 0.45);
-  zone.alpha = 0.45;
+  zone.diffuseColor = new BABYLON.Color3(0, 0.75, 1);
+  zone.emissiveColor = new BABYLON.Color3(0, 0.35, 0.55);
+  zone.alpha = 0.55;
 
   const danger = new BABYLON.StandardMaterial("DangerZoneMat", scene);
-  danger.diffuseColor = new BABYLON.Color3(1, 0.05, 0.05);
-  danger.emissiveColor = new BABYLON.Color3(0.45, 0.02, 0.02);
-  danger.alpha = 0.5;
+  danger.diffuseColor = new BABYLON.Color3(1, 0.1, 0.1);
+  danger.emissiveColor = new BABYLON.Color3(0.65, 0.05, 0.05);
+  danger.alpha = 0.55;
 
   const bullet = new BABYLON.StandardMaterial("BulletMat", scene);
   bullet.diffuseColor = new BABYLON.Color3(0, 0.9, 1);
@@ -223,51 +223,60 @@ function createMaterials(scene, game) {
   baseCore.emissiveColor = new BABYLON.Color3(0, 0.9, 1);
 
   const alien = new BABYLON.StandardMaterial("AlienMat", scene);
-  alien.diffuseColor = new BABYLON.Color3(0.18, 0.82, 0.22);
-  alien.emissiveColor = new BABYLON.Color3(0.04, 0.16, 0.04);
+  alien.diffuseColor = new BABYLON.Color3(0.35, 1.0, 0.45);
+  alien.emissiveColor = new BABYLON.Color3(0.20, 0.50, 0.25);
+  alien.specularColor = new BABYLON.Color3(0.7, 0.7, 0.7);
 
   const alienEye = new BABYLON.StandardMaterial("AlienEyeMat", scene);
-  alienEye.diffuseColor = new BABYLON.Color3(1, 0.05, 0.02);
-  alienEye.emissiveColor = new BABYLON.Color3(1, 0.05, 0.02);
+  alienEye.diffuseColor = new BABYLON.Color3(1, 0.1, 0.02);
+  alienEye.emissiveColor = new BABYLON.Color3(1, 0.1, 0.02);
 
   const base = new BABYLON.StandardMaterial("BaseMat", scene);
-  base.diffuseColor = new BABYLON.Color3(0.08, 0.09, 0.11);
+  base.diffuseColor = new BABYLON.Color3(0.18, 0.22, 0.28);
   base.specularColor = new BABYLON.Color3(0.8, 0.85, 0.9);
 
   const gun = new BABYLON.StandardMaterial("GunMat", scene);
-  gun.diffuseColor = new BABYLON.Color3(0.08, 0.09, 0.11);
+  gun.diffuseColor = new BABYLON.Color3(0.18, 0.22, 0.28);
   gun.specularColor = new BABYLON.Color3(0.8, 0.85, 0.9);
 
   return { ground, zone, danger, bullet, baseCore, alien, alienEye, base, gun };
 }
 
 function createEnvironment(scene, game, materials) {
-  scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
-  scene.fogColor = new BABYLON.Color3(0.012, 0.018, 0.032);
-  scene.fogDensity = 0.011;
+  // Clear daytime sky, zero dark fog
+  scene.fogMode = BABYLON.Scene.FOGMODE_NONE;
+  scene.clearColor = new BABYLON.Color4(0.52, 0.72, 0.92, 1.0);
 
-  // Cinematic Sci-Fi Bloom Glow Layer (desktop only to prevent mobile GPU fill-rate throttling)
+  // Tight glow layer without wide blur smearing
   if (!isMobileDevice()) {
     try {
       const glow = new BABYLON.GlowLayer("glow", scene, {
         mainTextureRatio: 0.5,
-        blurKernelSize: 24
+        blurKernelSize: 8
       });
-      glow.intensity = 0.22;
+      glow.intensity = 0.12;
       scene.glowLayer = glow;
     } catch (e) {
       console.warn("GlowLayer disabled:", e);
     }
   }
 
+  // Balanced daytime illumination: clear visibility with rich shadows and normal map detail
   const light = new BABYLON.HemisphericLight("SkyLight", new BABYLON.Vector3(0, 1, 0), scene);
-  light.intensity = 0.28;
-  light.groundColor = new BABYLON.Color3(0.01, 0.02, 0.04);
+  light.intensity = 1.20;
+  light.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
+  light.groundColor = new BABYLON.Color3(0.65, 0.70, 0.76);
 
-  const moonLight = new BABYLON.DirectionalLight("MoonLight", new BABYLON.Vector3(-0.35, -1, 0.45), scene);
-  moonLight.position = new BABYLON.Vector3(20, 40, -20);
-  moonLight.diffuse = new BABYLON.Color3(0.22, 0.32, 0.52);
-  moonLight.intensity = 0.65;
+  const sunLight = new BABYLON.DirectionalLight("SunLight", new BABYLON.Vector3(-0.45, -1, 0.35), scene);
+  sunLight.position = new BABYLON.Vector3(25, 50, -20);
+  sunLight.diffuse = new BABYLON.Color3(1.0, 0.99, 0.95);
+  sunLight.specular = new BABYLON.Color3(0.5, 0.5, 0.5);
+  sunLight.intensity = 1.45;
+
+  const fillLight = new BABYLON.DirectionalLight("FillLight", new BABYLON.Vector3(0.45, -0.65, -0.35), scene);
+  fillLight.position = new BABYLON.Vector3(-25, 35, 25);
+  fillLight.diffuse = new BABYLON.Color3(0.85, 0.90, 0.98);
+  fillLight.intensity = 0.65;
 
   const ground = BABYLON.MeshBuilder.CreateGround("Ground", { width: 90, height: 90 }, scene);
   ground.material = materials.ground;
@@ -321,10 +330,7 @@ function createEnvironment(scene, game, materials) {
   }
 
   createOuterArenaDetails(scene, materials);
-  createNightSkyDome(scene);
   createPanoramicSkyline(scene);
-  createAlienBloodMoon(scene);
-  createAlienBioMist(scene);
   createPerimeterBillboards(scene);
   createSkyscrapers(scene);
   createPerimeterFloodlights(scene);
@@ -392,22 +398,25 @@ function updateStageWeather(context) {
     lightningObserver = null;
   }
 
-  const stage = STAGES[game.selectedStage];
-  const weather = stage?.weather || "smog";
+  const stage = getStageData(game.selectedStage || game.stage || 1);
+  const weather = stage?.weather || "clear";
 
   const isMobile = isMobileDevice();
 
+  // Clear bright daytime sky, zero dark atmosphere or murky fog
+  scene.fogMode = BABYLON.Scene.FOGMODE_NONE;
+  scene.clearColor = new BABYLON.Color4(0.52, 0.72, 0.92, 1.0);
+
   if (weather === "rain") {
-    scene.fogColor = new BABYLON.Color3(0.015, 0.022, 0.038);
-    scene.fogDensity = 0.014;
+    scene.clearColor = new BABYLON.Color4(0.62, 0.74, 0.85, 1.0);
 
     const rainCap = isMobile ? 180 : 1200;
     const rain = new BABYLON.ParticleSystem("RainWeather", rainCap, scene);
     rain.emitter = new BABYLON.Vector3(0, 22, 0);
     rain.minEmitBox = new BABYLON.Vector3(-28, 0, -28);
     rain.maxEmitBox = new BABYLON.Vector3(28, 0, 28);
-    rain.color1 = new BABYLON.Color4(0.5, 0.7, 1.0, 0.6);
-    rain.color2 = new BABYLON.Color4(0.3, 0.5, 0.8, 0.3);
+    rain.color1 = new BABYLON.Color4(0.7, 0.85, 1.0, 0.5);
+    rain.color2 = new BABYLON.Color4(0.5, 0.7, 0.9, 0.25);
     rain.minSize = 0.06;
     rain.maxSize = 0.14;
     rain.minLifeTime = 0.65;
@@ -421,44 +430,42 @@ function updateStageWeather(context) {
 
     let nextLightningTime = performance.now() + 6000 + Math.random() * 6000;
     const skyLight = scene.getLightByName("SkyLight");
-    const baseSkyIntensity = skyLight ? skyLight.intensity : 0.28;
+    const baseSkyIntensity = skyLight ? skyLight.intensity : 1.50;
 
     lightningObserver = scene.onBeforeRenderObservable.add(() => {
       const now = performance.now();
       if (now >= nextLightningTime) {
         nextLightningTime = now + 9000 + Math.random() * 8000;
-        if (skyLight) skyLight.intensity = 1.6;
-        scene.clearColor = new BABYLON.Color4(0.4, 0.55, 0.7, 1.0);
+        if (skyLight) skyLight.intensity = 2.4;
+        scene.clearColor = new BABYLON.Color4(0.82, 0.90, 0.98, 1.0);
         setTimeout(() => {
           if (skyLight) skyLight.intensity = baseSkyIntensity;
-          scene.clearColor = new BABYLON.Color4(0.01, 0.01, 0.02, 1.0);
+          scene.clearColor = new BABYLON.Color4(0.62, 0.74, 0.85, 1.0);
         }, 120);
       }
     });
 
   } else if (weather === "sandstorm") {
-    scene.fogColor = new BABYLON.Color3(0.048, 0.028, 0.014);
-    scene.fogDensity = 0.024;
+    scene.clearColor = new BABYLON.Color4(0.70, 0.78, 0.88, 1.0);
 
-    const sandCap = isMobile ? 140 : 900;
+    const sandCap = isMobile ? 80 : 350;
     const sand = new BABYLON.ParticleSystem("SandWeather", sandCap, scene);
     sand.emitter = new BABYLON.Vector3(-26, 6, 0);
     sand.minEmitBox = new BABYLON.Vector3(0, -6, -28);
     sand.maxEmitBox = new BABYLON.Vector3(0, 14, 28);
-    sand.color1 = new BABYLON.Color4(0.85, 0.55, 0.25, 0.45);
-    sand.color2 = new BABYLON.Color4(0.65, 0.38, 0.15, 0.15);
-    sand.minSize = 0.15;
-    sand.maxSize = 0.35;
+    sand.color1 = new BABYLON.Color4(0.95, 0.82, 0.55, 0.22);
+    sand.color2 = new BABYLON.Color4(0.85, 0.72, 0.45, 0.08);
+    sand.minSize = 0.10;
+    sand.maxSize = 0.22;
     sand.minLifeTime = 1.4;
     sand.maxLifeTime = 2.2;
-    sand.emitRate = isMobile ? 90 : 500;
+    sand.emitRate = isMobile ? 50 : 200;
     sand.gravity = new BABYLON.Vector3(26, -2.5, 0);
     sand.start();
     currentWeatherParticleSystem = sand;
 
   } else if (weather === "snow") {
-    scene.fogColor = new BABYLON.Color3(0.018, 0.026, 0.038);
-    scene.fogDensity = 0.013;
+    scene.clearColor = new BABYLON.Color4(0.66, 0.79, 0.92, 1.0);
 
     const snowCap = isMobile ? 120 : 800;
     const snow = new BABYLON.ParticleSystem("SnowWeather", snowCap, scene);
@@ -477,24 +484,9 @@ function updateStageWeather(context) {
     currentWeatherParticleSystem = snow;
 
   } else {
-    scene.fogColor = new BABYLON.Color3(0.028, 0.022, 0.016);
-    scene.fogDensity = 0.011;
-
-    const smogCap = isMobile ? 60 : 400;
-    const smog = new BABYLON.ParticleSystem("SmogWeather", smogCap, scene);
-    smog.emitter = new BABYLON.Vector3(0, 4, 0);
-    smog.minEmitBox = new BABYLON.Vector3(-26, -3, -26);
-    smog.maxEmitBox = new BABYLON.Vector3(26, 12, 26);
-    smog.color1 = new BABYLON.Color4(1.0, 0.65, 0.2, 0.35);
-    smog.color2 = new BABYLON.Color4(0.9, 0.4, 0.1, 0.05);
-    smog.minSize = 0.08;
-    smog.maxSize = 0.18;
-    smog.minLifeTime = 3.0;
-    smog.maxLifeTime = 5.0;
-    smog.emitRate = isMobile ? 30 : 90;
-    smog.gravity = new BABYLON.Vector3(0.4, 0.8, 0.3);
-    smog.start();
-    currentWeatherParticleSystem = smog;
+    // Clear sunny daylight: no fog, no obscuring smog, 100% pristine visibility
+    scene.clearColor = new BABYLON.Color4(0.52, 0.72, 0.92, 1.0);
+    currentWeatherParticleSystem = null;
   }
 }
 
@@ -728,6 +720,34 @@ function getStagePalette(stageId) {
     }
   };
 
+  if (stageId === "food-street") {
+    return withSharedStageProps(stageId, {
+      prefix: "FoodStreet",
+      accent: new BABYLON.Color3(1.0, 0.52, 0.05),
+      secondary: new BABYLON.Color3(0.08, 0.65, 0.28),
+      sign: new BABYLON.Color3(0.45, 0.25, 0.05),
+      props: [
+        { name: "FoodStallA", assetKey: "marketStallCrates", position: new BABYLON.Vector3(16, 0, 10), targetSize: 4.4, rotation: 0.45, size: { width: 2.8, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "FoodStallB", assetKey: "marketStallCrates", position: new BABYLON.Vector3(-14, 0, -14), targetSize: 4.2, rotation: -0.6, size: { width: 2.8, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "FoodWorkbench", assetKey: "upgradeShopWorkbench", position: new BABYLON.Vector3(8, 0, -16), targetSize: 4.0, rotation: 0.9, size: { width: 2.4, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "minar-zone") {
+    return withSharedStageProps(stageId, {
+      prefix: "Minar",
+      accent: new BABYLON.Color3(0.12, 0.68, 0.38),
+      secondary: new BABYLON.Color3(0.92, 0.96, 0.94),
+      sign: new BABYLON.Color3(0.04, 0.38, 0.22),
+      props: [
+        { name: "MinarPillarA", assetKey: "cityWatchtower", position: new BABYLON.Vector3(18, 0, 14), targetSize: 5.6, rotation: 0.2, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "MinarPillarB", assetKey: "cityWatchtower", position: new BABYLON.Vector3(-18, 0, -14), targetSize: 5.6, rotation: -0.2, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "MinarSignBoard", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(0, 0, 24), targetSize: 4.2, rotation: 0, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "secondary", checkCollisions: true }
+      ]
+    });
+  }
+
   if (stageId === "karachi-harbor") {
     return withSharedStageProps(stageId, {
       prefix: "Karachi",
@@ -769,7 +789,216 @@ function getStagePalette(stageId) {
     });
   }
 
-  return withSharedStageProps(stageId, common.lahore);
+  if (stageId === "hyderabad-fort") {
+    return withSharedStageProps(stageId, {
+      prefix: "Hyderabad",
+      accent: new BABYLON.Color3(0.95, 0.42, 0.12),
+      secondary: new BABYLON.Color3(0.85, 0.72, 0.25),
+      sign: new BABYLON.Color3(0.35, 0.15, 0.05),
+      props: [
+        { name: "HyderabadSandbag", assetKey: "sandbagWall", position: new BABYLON.Vector3(16, 0, 10), targetSize: 4.8, rotation: 0.2, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "HyderabadBarricade", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(-14, 0, -12), targetSize: 4.4, rotation: -0.4, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "HyderabadSign", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(0, 0, 22), targetSize: 4.2, rotation: 0, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "rawalpindi-junction") {
+    return withSharedStageProps(stageId, {
+      prefix: "Rawalpindi",
+      accent: new BABYLON.Color3(0.22, 0.48, 0.75),
+      secondary: new BABYLON.Color3(0.95, 0.65, 0.15),
+      sign: new BABYLON.Color3(0.12, 0.22, 0.35),
+      props: [
+        { name: "PindiContainer", assetKey: "karachiShippingContainer", position: new BABYLON.Vector3(16, 0, 12), targetSize: 4.8, rotation: 0.3, size: { width: 3.8, height: 1.4, depth: 1.3 }, material: "accent", checkCollisions: true },
+        { name: "PindiCrates", assetKey: "marketStallCrates", position: new BABYLON.Vector3(-15, 0, -14), targetSize: 4.2, rotation: -0.5, size: { width: 2.8, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "PindiBarricade", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(8, 0, -16), targetSize: 4.0, rotation: 0.8, size: { width: 3.0, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "faisalabad-clocktower") {
+    return withSharedStageProps(stageId, {
+      prefix: "Faisalabad",
+      accent: new BABYLON.Color3(0.85, 0.25, 0.18),
+      secondary: new BABYLON.Color3(0.92, 0.78, 0.35),
+      sign: new BABYLON.Color3(0.32, 0.12, 0.08),
+      props: [
+        { name: "FaisalabadTower", assetKey: "cityWatchtower", position: new BABYLON.Vector3(18, 0, 14), targetSize: 5.8, rotation: 0.2, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "FaisalabadWorkbench", assetKey: "upgradeShopWorkbench", position: new BABYLON.Vector3(-16, 0, -12), targetSize: 4.2, rotation: -0.4, size: { width: 2.4, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "FaisalabadCrates", assetKey: "marketStallCrates", position: new BABYLON.Vector3(0, 0, 22), targetSize: 4.0, rotation: 0, size: { width: 2.8, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "multan-sun-citadel") {
+    return withSharedStageProps(stageId, {
+      prefix: "Multan",
+      accent: new BABYLON.Color3(1.0, 0.68, 0.08),
+      secondary: new BABYLON.Color3(0.12, 0.65, 0.85),
+      sign: new BABYLON.Color3(0.45, 0.28, 0.05),
+      props: [
+        { name: "MultanSign", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(15, 0, 12), targetSize: 4.4, rotation: 0.3, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "accent", checkCollisions: true },
+        { name: "MultanSandbag", assetKey: "sandbagWall", position: new BABYLON.Vector3(-16, 0, -14), targetSize: 4.8, rotation: -0.5, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "MultanTower", assetKey: "cityWatchtower", position: new BABYLON.Vector3(10, 0, -16), targetSize: 5.4, rotation: 0.6, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "quetta-pass") {
+    return withSharedStageProps(stageId, {
+      prefix: "Quetta",
+      accent: new BABYLON.Color3(0.72, 0.52, 0.32),
+      secondary: new BABYLON.Color3(0.88, 0.35, 0.15),
+      sign: new BABYLON.Color3(0.25, 0.18, 0.12),
+      props: [
+        { name: "QuettaBarricade", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(16, 0, 10), targetSize: 4.6, rotation: 0.25, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "QuettaTower", assetKey: "cityWatchtower", position: new BABYLON.Vector3(-18, 0, -14), targetSize: 5.6, rotation: -0.3, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "QuettaSandbag", assetKey: "sandbagWall", position: new BABYLON.Vector3(8, 0, -18), targetSize: 4.8, rotation: 0.8, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "gwadar-deep-port") {
+    return withSharedStageProps(stageId, {
+      prefix: "Gwadar",
+      accent: new BABYLON.Color3(0.04, 0.62, 0.88),
+      secondary: new BABYLON.Color3(0.92, 0.95, 0.98),
+      sign: new BABYLON.Color3(0.02, 0.25, 0.38),
+      props: [
+        { name: "GwadarContainerA", assetKey: "karachiShippingContainer", position: new BABYLON.Vector3(17, 0, 11), targetSize: 5.2, rotation: 0.2, size: { width: 3.8, height: 1.4, depth: 1.3 }, material: "accent", checkCollisions: true },
+        { name: "GwadarContainerB", assetKey: "karachiShippingContainer", position: new BABYLON.Vector3(-16, 0, -14), targetSize: 5.0, rotation: -0.4, size: { width: 3.8, height: 1.4, depth: 1.3 }, material: "secondary", checkCollisions: true },
+        { name: "GwadarSign", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(0, 0, 24), targetSize: 4.4, rotation: 0, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "murree-pine-ridge") {
+    return withSharedStageProps(stageId, {
+      prefix: "Murree",
+      accent: new BABYLON.Color3(0.12, 0.62, 0.32),
+      secondary: new BABYLON.Color3(0.82, 0.88, 0.92),
+      sign: new BABYLON.Color3(0.05, 0.28, 0.15),
+      props: [
+        { name: "MurreePlanter", assetKey: "streetPlanterBarrier", position: new BABYLON.Vector3(16, 0, 10), targetSize: 4.6, rotation: 0.3, size: { width: 2.8, height: 1.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "MurreeWorkbench", assetKey: "upgradeShopWorkbench", position: new BABYLON.Vector3(-15, 0, -12), targetSize: 4.2, rotation: -0.5, size: { width: 2.4, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "MurreeSign", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(0, 0, 22), targetSize: 4.0, rotation: 0, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "skardu-outpost") {
+    return withSharedStageProps(stageId, {
+      prefix: "Skardu",
+      accent: new BABYLON.Color3(0.35, 0.82, 1.0),
+      secondary: new BABYLON.Color3(0.92, 0.96, 1.0),
+      sign: new BABYLON.Color3(0.08, 0.32, 0.45),
+      props: [
+        { name: "SkarduTower", assetKey: "cityWatchtower", position: new BABYLON.Vector3(18, 0, 14), targetSize: 5.8, rotation: 0.2, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "SkarduSandbag", assetKey: "sandbagWall", position: new BABYLON.Vector3(-16, 0, -14), targetSize: 4.8, rotation: -0.4, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "SkarduSign", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(0, 0, 24), targetSize: 4.2, rotation: 0, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "sialkot-frontier") {
+    return withSharedStageProps(stageId, {
+      prefix: "Sialkot",
+      accent: new BABYLON.Color3(0.42, 0.75, 0.15),
+      secondary: new BABYLON.Color3(0.75, 0.82, 0.88),
+      sign: new BABYLON.Color3(0.18, 0.32, 0.08),
+      props: [
+        { name: "SialkotBarricade", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(16, 0, 10), targetSize: 4.6, rotation: 0.2, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "SialkotSandbag", assetKey: "sandbagWall", position: new BABYLON.Vector3(-15, 0, -12), targetSize: 4.8, rotation: -0.4, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "SialkotWorkbench", assetKey: "upgradeShopWorkbench", position: new BABYLON.Vector3(8, 0, -16), targetSize: 4.0, rotation: 0.7, size: { width: 2.4, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "bahawalpur-palace") {
+    return withSharedStageProps(stageId, {
+      prefix: "Bahawalpur",
+      accent: new BABYLON.Color3(0.88, 0.22, 0.28),
+      secondary: new BABYLON.Color3(0.95, 0.82, 0.45),
+      sign: new BABYLON.Color3(0.38, 0.08, 0.12),
+      props: [
+        { name: "BahawalpurCrates", assetKey: "marketStallCrates", position: new BABYLON.Vector3(15, 0, 11), targetSize: 4.4, rotation: 0.3, size: { width: 2.8, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "BahawalpurPlanter", assetKey: "streetPlanterBarrier", position: new BABYLON.Vector3(-16, 0, -13), targetSize: 4.6, rotation: -0.5, size: { width: 2.8, height: 1.2, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "BahawalpurSign", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(0, 0, 22), targetSize: 4.2, rotation: 0, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "sukkur-barrage") {
+    return withSharedStageProps(stageId, {
+      prefix: "Sukkur",
+      accent: new BABYLON.Color3(0.15, 0.68, 0.72),
+      secondary: new BABYLON.Color3(0.75, 0.78, 0.82),
+      sign: new BABYLON.Color3(0.06, 0.28, 0.32),
+      props: [
+        { name: "SukkurBarricade", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(16, 0, 10), targetSize: 4.6, rotation: 0.25, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "SukkurContainer", assetKey: "karachiShippingContainer", position: new BABYLON.Vector3(-15, 0, -14), targetSize: 5.0, rotation: -0.4, size: { width: 3.8, height: 1.4, depth: 1.3 }, material: "secondary", checkCollisions: true },
+        { name: "SukkurSandbag", assetKey: "sandbagWall", position: new BABYLON.Vector3(8, 0, -16), targetSize: 4.6, rotation: 0.8, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "rohtas-bastion") {
+    return withSharedStageProps(stageId, {
+      prefix: "Rohtas",
+      accent: new BABYLON.Color3(0.78, 0.48, 0.22),
+      secondary: new BABYLON.Color3(0.92, 0.75, 0.35),
+      sign: new BABYLON.Color3(0.28, 0.18, 0.08),
+      props: [
+        { name: "RohtasTower", assetKey: "cityWatchtower", position: new BABYLON.Vector3(18, 0, 14), targetSize: 5.8, rotation: 0.2, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "RohtasSandbag", assetKey: "sandbagWall", position: new BABYLON.Vector3(-16, 0, -14), targetSize: 5.0, rotation: -0.3, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "RohtasBarricade", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(0, 0, 22), targetSize: 4.4, rotation: 0, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "khyber-redoubt") {
+    return withSharedStageProps(stageId, {
+      prefix: "Khyber",
+      accent: new BABYLON.Color3(0.82, 0.32, 0.12),
+      secondary: new BABYLON.Color3(0.95, 0.65, 0.25),
+      sign: new BABYLON.Color3(0.32, 0.12, 0.04),
+      props: [
+        { name: "KhyberGate", assetKey: "peshawarGate", position: new BABYLON.Vector3(16, 0, 12), targetSize: 5.4, rotation: 0.2, size: { width: 4.0, height: 2.8, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "KhyberBarricade", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(-15, 0, -13), targetSize: 4.4, rotation: -0.4, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "secondary", checkCollisions: true },
+        { name: "KhyberSandbag", assetKey: "sandbagWall", position: new BABYLON.Vector3(0, 0, 24), targetSize: 4.8, rotation: 0, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true }
+      ]
+    });
+  }
+
+  if (stageId === "karakoram-apex") {
+    return withSharedStageProps(stageId, {
+      prefix: "Karakoram",
+      accent: new BABYLON.Color3(0.25, 0.95, 1.0),
+      secondary: new BABYLON.Color3(0.95, 0.25, 0.15),
+      sign: new BABYLON.Color3(0.05, 0.35, 0.45),
+      props: [
+        { name: "ApexTowerA", assetKey: "cityWatchtower", position: new BABYLON.Vector3(18, 0, 14), targetSize: 6.0, rotation: 0.2, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "ApexTowerB", assetKey: "cityWatchtower", position: new BABYLON.Vector3(-18, 0, -14), targetSize: 6.0, rotation: -0.2, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+        { name: "ApexSign", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(0, 0, 24), targetSize: 4.5, rotation: 0, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "secondary", checkCollisions: true }
+      ]
+    });
+  }
+
+  // Infinite procedural sectors fallback
+  const num = getStageNumber(stageId);
+  const hue = ((num * 47) % 360) / 360;
+  return withSharedStageProps(stageId, {
+    prefix: `Sector${num}`,
+    accent: new BABYLON.Color3(Math.sin(num) * 0.4 + 0.6, Math.cos(num * 0.7) * 0.4 + 0.6, 0.85),
+    secondary: new BABYLON.Color3(0.85, 0.88, 0.92),
+    sign: new BABYLON.Color3(0.12, 0.22, 0.32),
+    props: [
+      { name: "InfiniteBarricade", assetKey: "roadBarricadeUrdu", position: new BABYLON.Vector3(16, 0, 10), targetSize: 4.6, rotation: 0.25, size: { width: 3.2, height: 1.4, depth: 1.2 }, material: "accent", checkCollisions: true },
+      { name: "InfiniteTower", assetKey: "cityWatchtower", position: new BABYLON.Vector3(-17, 0, -14), targetSize: 5.5, rotation: -0.3, size: { width: 1.2, height: 5.2, depth: 1.2 }, material: "accent", checkCollisions: true },
+      { name: "InfiniteSign", assetKey: "sectorSignBoard", position: new BABYLON.Vector3(0, 0, 24), targetSize: 4.2, rotation: 0, size: { width: 2.8, height: 1.6, depth: 1.5 }, material: "secondary", checkCollisions: true }
+    ]
+  });
 }
 
 function createOuterArenaDetails(scene, materials) {
@@ -858,11 +1087,11 @@ function createPanoramicSkyline(scene) {
   tex.vScale = 1;
   mat.diffuseTexture = tex;
   mat.emissiveTexture = tex;
-  // Deep dark nocturnal tint: turns the skyline into an eerie, dark alien midnight silhouette
-  mat.emissiveColor = new BABYLON.Color3(0.08, 0.10, 0.16);
-  mat.diffuseColor = new BABYLON.Color3(0.04, 0.05, 0.08);
-  mat.specularColor = BABYLON.Color3.Black();
-  mat.disableLighting = true;
+  // Vibrant daylight backdrop: crisp, clean skyline silhouette on sunny horizon
+  mat.emissiveColor = new BABYLON.Color3(0.85, 0.90, 0.98);
+  mat.diffuseColor = new BABYLON.Color3(0.95, 0.98, 1.0);
+  mat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+  mat.disableLighting = false;
   mat.backFaceCulling = false;
   mat.fogEnabled = false;
   panorama.material = mat;
@@ -1222,28 +1451,28 @@ export function attachWeaponModel(context, weaponId = (context.game?.activeWeapo
   if (weaponId === "shotgun") {
     modelAsset = context.loadedAssets.fpsHeavyShotgun || context.loadedAssets.plasmaCannon || context.loadedAssets.rifle;
     targetScale = 0.52;
-    posOffset = new BABYLON.Vector3(0, -0.04, 0.12);
-    rotOffset = new BABYLON.Vector3(0.02, Math.PI, 0);
+    posOffset = new BABYLON.Vector3(0.04, -0.04, 0.14);
+    rotOffset = new BABYLON.Vector3(0.02, -Math.PI / 2 - 0.03, 0.01);
   } else if (weaponId === "rifle") {
     modelAsset = context.loadedAssets.plasmaCannon || context.loadedAssets.rifle || context.loadedAssets.fpsHeavyShotgun;
     targetScale = 0.48;
-    posOffset = new BABYLON.Vector3(0, -0.03, 0.14);
-    rotOffset = new BABYLON.Vector3(0.02, Math.PI, 0);
+    posOffset = new BABYLON.Vector3(0.03, -0.03, 0.15);
+    rotOffset = new BABYLON.Vector3(0.02, -Math.PI / 2 - 0.03, 0.01);
   } else if (weaponId === "rocket") {
     modelAsset = context.loadedAssets.fpsRocketLauncher || context.loadedAssets.plasmaCannon || context.loadedAssets.rifle;
     targetScale = 0.56;
-    posOffset = new BABYLON.Vector3(0.02, -0.02, 0.10);
-    rotOffset = new BABYLON.Vector3(0.01, Math.PI, 0);
+    posOffset = new BABYLON.Vector3(0.05, -0.02, 0.12);
+    rotOffset = new BABYLON.Vector3(0.01, -Math.PI / 2 - 0.03, 0.01);
   } else if (weaponId === "sniper") {
     modelAsset = context.loadedAssets.rifle || context.loadedAssets.plasmaCannon || context.loadedAssets.fpsHeavyShotgun;
     targetScale = 0.54;
-    posOffset = new BABYLON.Vector3(0, -0.03, 0.16);
-    rotOffset = new BABYLON.Vector3(0.02, Math.PI, 0);
+    posOffset = new BABYLON.Vector3(0.03, -0.03, 0.16);
+    rotOffset = new BABYLON.Vector3(0.02, -Math.PI / 2 - 0.03, 0.01);
   } else if (weaponId === "flamethrower") {
     modelAsset = context.loadedAssets.plasmaCannon || context.loadedAssets.fpsHeavyShotgun || context.loadedAssets.rifle;
     targetScale = 0.50;
-    posOffset = new BABYLON.Vector3(0.01, -0.04, 0.13);
-    rotOffset = new BABYLON.Vector3(0.01, Math.PI, 0);
+    posOffset = new BABYLON.Vector3(0.03, -0.04, 0.14);
+    rotOffset = new BABYLON.Vector3(0.01, -Math.PI / 2 - 0.03, 0.01);
   }
 
   // Set distinct muzzle light emission color based on weapon
@@ -1293,10 +1522,9 @@ export function createGameScene({ canvas, engine, ui }) {
   loadBestScore(game);
   loadSave(game);
   const scene = new BABYLON.Scene(engine);
-  scene.clearColor = new BABYLON.Color4(0.006, 0.008, 0.016, 1);
-  scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
-  scene.fogDensity = 0.0042;
-  scene.fogColor = new BABYLON.Color3(0.008, 0.012, 0.022);
+  scene.clearColor = new BABYLON.Color4(0.48, 0.68, 0.88, 1);
+  scene.fogMode = BABYLON.Scene.FOGMODE_NONE;
+  scene.fogDensity = 0.0;
   scene.gravity = new BABYLON.Vector3(0, -0.4, 0);
   scene.collisionsEnabled = true;
 
@@ -1400,6 +1628,10 @@ export function createGameScene({ canvas, engine, ui }) {
     stopBossMusic();
     resetGameState();
     clearAliens(game, context);
+    if (game.alienProjectiles) {
+      game.alienProjectiles.forEach(p => p.mesh?.dispose?.());
+      game.alienProjectiles = [];
+    }
     clearPickups(game);
     resetPlayer(camera);
     document.body.classList.remove("is-defeat-active");

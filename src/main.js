@@ -4,7 +4,6 @@ import { createGameScene } from "./scene.js";
 import { setupInput } from "./input.js";
 import { setupAudioUnlock } from "./sound.js";
 import { setupAdsIfAvailable, showRewardedDoubleLootIfAvailable } from "./adBridge.js";
-import { setupIAP } from "./iap.js";
 import { initRetention, claimDailyReward, claimMissionReward } from "./retention.js";
 import { setupSettingsModal } from "./settings.js";
 import { isMobileDevice } from "./graphics.js";
@@ -17,15 +16,12 @@ if (!supportsWebGL()) {
 } else {
   if (ui.loadingOverlay) ui.loadingOverlay.style.display = "none";
   const isMobile = isMobileDevice();
-  const engine = new BABYLON.Engine(canvas, !isMobile, {
+  const engine = new BABYLON.Engine(canvas, true, {
     preserveDrawingBuffer: false,
     stencil: false,
     powerPreference: "high-performance",
     doNotHandleContextLost: false
   }, true);
-  if (isMobile) {
-    engine.setHardwareScalingLevel(1.4);
-  }
   const context = createGameScene({ canvas, engine, ui });
   window.__alienBaseDefense = context;
 
@@ -33,7 +29,6 @@ if (!supportsWebGL()) {
   setupInput(context);
   setupSettingsModal(context);
   setupAdsIfAvailable();
-  setupIAP(context);
   initRetention(context);
 
   const claimDailyBtn = document.getElementById("claimDailyBtn");

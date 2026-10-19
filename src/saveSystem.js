@@ -5,7 +5,7 @@ const DEFAULT_SAVE = {
   selectedStage: "lahore-outskirts",
   graphicsQuality: "medium",
   showTouchControls: false,
-  autoFire: true,
+  autoFire: false,
   noAds: false,
   loginStreak: 1,
   lastLoginDate: 0,
@@ -29,7 +29,8 @@ export function loadSave(game) {
     game.selectedStage = save.selectedStage || DEFAULT_SAVE.selectedStage;
     game.graphicsQuality = save.graphicsQuality || DEFAULT_SAVE.graphicsQuality;
     game.showTouchControls = Boolean(save.showTouchControls);
-    game.autoFire = typeof save.autoFire === "boolean" ? save.autoFire : true;
+    // Explicit manual firing by default; only true if explicitly saved as true
+    game.autoFire = save.autoFire === true;
     game.noAds = Boolean(save.noAds);
     game.loginStreak = Number.isFinite(save.loginStreak) ? save.loginStreak : 1;
     game.lastLoginDate = Number.isFinite(save.lastLoginDate) ? save.lastLoginDate : 0;

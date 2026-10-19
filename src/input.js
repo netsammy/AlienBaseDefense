@@ -128,6 +128,8 @@ export function setupInput(context) {
         e.preventDefault();
         e.stopPropagation();
         if (ui.defeatOverlay) ui.defeatOverlay.style.display = "none";
+        document.body.classList.remove("is-defeat-active");
+        document.body.classList.remove("is-game-over");
         (context.resetGame || resetGame)?.();
         requestPointerLockSafely(canvas);
         return;
@@ -288,6 +290,8 @@ export function setupInput(context) {
       e?.preventDefault?.();
       e?.stopPropagation?.();
       if (ui.defeatOverlay) ui.defeatOverlay.style.display = "none";
+      document.body.classList.remove("is-defeat-active");
+      document.body.classList.remove("is-game-over");
       (context.resetGame || resetGame)?.();
       requestPointerLockSafely(canvas);
     };
@@ -332,6 +336,8 @@ export function setupInput(context) {
     autoFireCheckbox.checked = Boolean(game.autoFire);
     autoFireCheckbox.addEventListener("change", () => {
       game.autoFire = autoFireCheckbox.checked;
+      const settingsToggle = document.getElementById("settingsAutoFireToggle");
+      if (settingsToggle) settingsToggle.checked = game.autoFire;
       saveGame(game);
     });
   }

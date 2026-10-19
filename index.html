@@ -113,9 +113,12 @@
 
     #alienMapPanel {
       top: 18px;
-      left: 282px;
+      right: 18px;
+      left: auto;
       width: 176px;
       padding: 10px;
+      z-index: 25;
+      pointer-events: none;
     }
 
     #alienMapPanel h3 {
@@ -133,6 +136,7 @@
       background: rgba(0, 7, 13, 0.78);
       border: 1px solid rgba(191, 246, 255, 0.4);
       box-shadow: inset 0 0 18px rgba(0, 220, 255, 0.12);
+      pointer-events: none;
     }
 
     #message {
@@ -297,21 +301,21 @@
       position: fixed;
       top: max(10px, env(safe-area-inset-top));
       right: max(12px, env(safe-area-inset-right));
-      z-index: 46;
-      width: 36px;
-      height: 36px;
+      z-index: 48;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      background: rgba(0, 16, 28, 0.85);
+      background: rgba(0, 16, 28, 0.88);
       border: 1.5px solid #00e5ff;
       color: #00e5ff;
-      font-size: 17px;
+      font-size: 18px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       pointer-events: auto;
       touch-action: manipulation;
-      box-shadow: 0 0 12px rgba(0, 229, 255, 0.35);
+      box-shadow: 0 0 14px rgba(0, 229, 255, 0.45);
     }
 
     /* In-Game Settings Overlay */
@@ -328,6 +332,7 @@
     }
 
     #settingsCard {
+      position: relative;
       width: min(460px, calc(100vw - 32px));
       max-height: calc(100vh - 20px);
       background: rgba(0, 14, 28, 0.96);
@@ -555,28 +560,56 @@
 
     #stageSelect {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px;
       margin: 0;
+      max-height: 185px;
+      overflow-y: auto;
+      padding-right: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: #00d6ff rgba(0, 20, 35, 0.6);
+    }
+
+    #stageSelect::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    #stageSelect::-webkit-scrollbar-track {
+      background: rgba(0, 20, 35, 0.6);
+      border-radius: 4px;
+    }
+
+    #stageSelect::-webkit-scrollbar-thumb {
+      background: #00d6ff;
+      border-radius: 4px;
     }
 
     .stageBtn {
       pointer-events: auto;
-      min-height: 40px;
-      padding: 5px 6px;
-      font-size: 10px;
+      min-height: 38px;
+      padding: 4px 6px;
+      font-size: 9.5px;
       border: 1px solid rgba(191, 246, 255, 0.45);
       border-radius: 6px;
       background: rgba(0, 60, 80, 0.55);
       color: white;
-      font-weight: 900;
+      font-weight: 800;
       cursor: pointer;
       transition: all 0.15s ease;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
       line-height: 1.15;
+    }
+
+    .stageBtn .stageNum {
+      font-size: 7.5px;
+      color: #80d8ff;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      font-weight: 900;
     }
 
     .stageBtn:hover {
@@ -588,6 +621,10 @@
       border-color: #ffe66d;
       background: rgba(0, 80, 120, 0.85);
       box-shadow: 0 0 16px rgba(255, 230, 109, 0.45);
+    }
+
+    .stageBtn.selected .stageNum {
+      color: #ffe66d;
     }
 
     #menuStatus {
@@ -1321,7 +1358,7 @@
 
     #shopPanel {
       right: 18px;
-      top: 82px;
+      top: 248px;
       width: 245px;
       pointer-events: auto;
     }
@@ -1531,9 +1568,9 @@
         line-height: 1.32;
       }
 
-      #stats div:nth-child(2),
-      #stats div:nth-child(6),
-      #stats div:nth-child(10) {
+      #stats div:nth-child(7),
+      #stats div:nth-child(10),
+      #stats div:nth-child(11) {
         display: none;
       }
 
@@ -1753,14 +1790,19 @@
       }
 
       #stageSelect {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, 1fr);
         gap: 4px;
+        max-height: 145px;
       }
 
       .stageBtn {
-        min-height: 36px;
+        min-height: 32px;
         padding: 3px 4px;
-        font-size: 9.5px;
+        font-size: 8.5px;
+      }
+
+      .stageBtn .stageNum {
+        font-size: 7px;
       }
 
       #difficultyButtons .difficultyBtn {
@@ -1853,15 +1895,13 @@
       <div id="bossHealthText">100%</div>
     </div>
 
-    <button id="mobileSettingsBtn" title="Settings &amp; Audio">⚙️</button>
-
     <div id="radioCommsBanner">
       <span id="radioCommsTag" style="color: #ffe66d; margin-right: 8px;">📻 [HQ COMMS]</span><span id="radioCommsText">DEFENDER ONLINE. SECURE THE PERIMETER CORE.</span>
     </div>
     <div id="stats" class="panel">
       <div>MODE: <span id="difficultyLabel">Easy</span></div>
       <div>SECTOR: <span id="stageLabel" style="color: #69f0ae; font-weight: 800;">Lahore Outskirts</span></div>
-      <div>WAVE: <span id="waveLabel" style="color: #ffd700; font-weight: 800;">1 / 3</span></div>
+      <div>PROGRESS: <span id="waveLabel" style="color: #ffd700; font-weight: 800;">WAVE 1 OF 3</span></div>
       <div style="display: none;"><span id="stage">1</span> - <span id="stageName">Rookie</span> (<span id="wave">1</span>)</div>
       <div>ALIENS LEFT: <span id="aliensLeft" style="color: #ff5252; font-weight: 800;">0</span></div>
       <div>SCORE: <span id="score">0</span></div>
@@ -1896,7 +1936,6 @@
       <button class="shopBtn" data-shop-item="turretDamage">Turret Damage<span>Level 0</span></button>
       <button class="shopBtn" data-shop-item="critChance">Crit Optics<span>Level 0</span></button>
       <button class="shopBtn" data-shop-item="shieldRegen">Nano Shield Repair<span>Level 0</span></button>
-      <button id="buyStarterPackBtn" class="shopBtn" style="background: linear-gradient(135deg, #e67e22, #f39c12); color: #fff; border-color: #f1c40f; margin-top: 10px;">VIP STARTER PACK ($2.99)<span>No Ads + 500 Coins</span></button>
     </div>
 
     <div id="hintPanel" class="panel">
@@ -1953,6 +1992,7 @@
     <div id="pauseMenu">
       <h2>PAUSED</h2>
       <button id="resumeButton" class="pauseBtn">RESUME</button>
+      <button id="pauseSettingsButton" class="pauseBtn">SETTINGS</button>
       <button id="controlsButton" class="pauseBtn">CONTROLS</button>
       <button id="pauseRestartButton" class="pauseBtn">RESTART</button>
       <button id="mainMenuButton" class="pauseBtn">MAIN MENU</button>
@@ -1993,10 +2033,10 @@
       </div>
       <label class="settingsToggle">
         <span>
-          <strong>Auto-Fire (Recommended)</strong>
+          <strong>Auto-Fire (Optional)</strong>
           <span>Automatically triggers weapon when aiming at an alien.</span>
         </span>
-        <input id="autoFireToggle" type="checkbox" checked />
+        <input id="autoFireToggle" type="checkbox" />
       </label>
       <label class="settingsToggle">
         <span>
@@ -2098,6 +2138,8 @@
     <button id="mobileFireButton" class="mobileAction">FIRE</button>
   </div>
 
+  <button id="mobileSettingsBtn" title="Settings &amp; Audio">⚙️</button>
+
   <div id="startOverlay">
     <div id="startCard">
       <div class="startCardHeader">
@@ -2120,6 +2162,7 @@
           </div>
           <button id="startButton">DEPLOY MISSION</button>
           <div id="menuActions">
+            <button id="menuSettingsButton" class="menuActionBtn">SETTINGS</button>
             <button id="menuControlsButton" class="menuActionBtn">CONTROLS</button>
             <a class="menuActionBtn" href="privacy.html" target="_blank" rel="noopener">PRIVACY</a>
           </div>
@@ -2129,12 +2172,26 @@
         <div class="startCardColRight">
           <div class="stageSelectLabel">SELECT STAGE TO DEPLOY</div>
           <div id="stageSelect">
-            <button class="stageBtn selected" data-stage-id="lahore-outskirts">LAHORE OUTSKIRTS</button>
-            <button class="stageBtn" data-stage-id="food-street">FOOD STREET</button>
-            <button class="stageBtn" data-stage-id="minar-zone">MINAR ZONE</button>
-            <button class="stageBtn" data-stage-id="karachi-harbor">KARACHI HARBOR</button>
-            <button class="stageBtn" data-stage-id="islamabad-sector">ISLAMABAD SECTOR</button>
-            <button class="stageBtn" data-stage-id="peshawar-gate">PESHAWAR GATE</button>
+            <button class="stageBtn selected" data-stage-id="lahore-outskirts"><span class="stageNum">SECTOR 01</span>LAHORE OUTSKIRTS</button>
+            <button class="stageBtn" data-stage-id="food-street"><span class="stageNum">SECTOR 02</span>FOOD STREET</button>
+            <button class="stageBtn" data-stage-id="minar-zone"><span class="stageNum">SECTOR 03</span>MINAR ZONE</button>
+            <button class="stageBtn" data-stage-id="karachi-harbor"><span class="stageNum">SECTOR 04</span>KARACHI HARBOR</button>
+            <button class="stageBtn" data-stage-id="hyderabad-fort"><span class="stageNum">SECTOR 05</span>HYDERABAD FORT</button>
+            <button class="stageBtn" data-stage-id="rawalpindi-junction"><span class="stageNum">SECTOR 06</span>RAWALPINDI JUNCTION</button>
+            <button class="stageBtn" data-stage-id="islamabad-sector"><span class="stageNum">SECTOR 07</span>ISLAMABAD SECTOR</button>
+            <button class="stageBtn" data-stage-id="peshawar-gate"><span class="stageNum">SECTOR 08</span>PESHAWAR GATE</button>
+            <button class="stageBtn" data-stage-id="faisalabad-clocktower"><span class="stageNum">SECTOR 09</span>FAISALABAD HUB</button>
+            <button class="stageBtn" data-stage-id="multan-sun-citadel"><span class="stageNum">SECTOR 10</span>MULTAN CITADEL</button>
+            <button class="stageBtn" data-stage-id="quetta-pass"><span class="stageNum">SECTOR 11</span>QUETTA PASS</button>
+            <button class="stageBtn" data-stage-id="gwadar-deep-port"><span class="stageNum">SECTOR 12</span>GWADAR DEEP PORT</button>
+            <button class="stageBtn" data-stage-id="murree-pine-ridge"><span class="stageNum">SECTOR 13</span>MURREE PINE RIDGE</button>
+            <button class="stageBtn" data-stage-id="skardu-outpost"><span class="stageNum">SECTOR 14</span>SKARDU OUTPOST</button>
+            <button class="stageBtn" data-stage-id="sialkot-frontier"><span class="stageNum">SECTOR 15</span>SIALKOT FRONTIER</button>
+            <button class="stageBtn" data-stage-id="bahawalpur-palace"><span class="stageNum">SECTOR 16</span>BAHAWALPUR PALACE</button>
+            <button class="stageBtn" data-stage-id="sukkur-barrage"><span class="stageNum">SECTOR 17</span>SUKKUR BARRAGE</button>
+            <button class="stageBtn" data-stage-id="rohtas-bastion"><span class="stageNum">SECTOR 18</span>ROHTAS BASTION</button>
+            <button class="stageBtn" data-stage-id="khyber-redoubt"><span class="stageNum">SECTOR 19</span>KHYBER REDOUBT</button>
+            <button class="stageBtn" data-stage-id="karakoram-apex"><span class="stageNum">SECTOR 20</span>KARAKORAM APEX</button>
           </div>
           <div id="difficultyButtons">
             <button class="difficultyBtn easy selected" data-difficulty="easy">EASY</button>
@@ -2160,6 +2217,7 @@
     </div>
   <div id="settingsOverlay">
     <div id="settingsCard">
+      <button id="settingsCloseBtn" style="position: absolute; top: 12px; right: 14px; background: transparent; border: none; color: #00e5ff; font-size: 20px; font-weight: 900; cursor: pointer; padding: 4px 8px; line-height: 1;">✕</button>
       <h2>TACTICAL SETTINGS</h2>
       <div class="settingsGroup">
         <label><span>Master Volume</span><span id="masterVolVal">85%</span></label>
@@ -2185,6 +2243,15 @@
       <div class="settingsGroup">
         <label><span>Look Sensitivity</span><span id="sensVal">1.0x</span></label>
         <input id="sensSlider" type="range" min="20" max="250" value="100" />
+      </div>
+      <div class="settingsGroup">
+        <label style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
+          <span style="display: flex; flex-direction: column; text-align: left;">
+            <strong style="color: #ffffff; font-size: 13px;">Auto-Shooting</strong>
+            <span style="font-size: 10px; color: #84ffff; font-weight: normal; margin-top: 2px;">Automatically fires weapon when aiming at an alien</span>
+          </span>
+          <input id="settingsAutoFireToggle" type="checkbox" style="width: 22px; height: 22px; cursor: pointer; accent-color: #00e5ff; margin-left: 12px;" />
+        </label>
       </div>
       <div class="settingsActions">
         <button id="resumeGameBtn" class="settingsBtn primary">RESUME MISSION</button>

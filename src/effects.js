@@ -135,10 +135,23 @@ export function flashAlienHit(alien) {
   });
 }
 
-export function createAlienExplosion(scene, alien, material, effectsScale = 1) {
-  const explosion = BABYLON.MeshBuilder.CreateSphere("AlienExplosion", { diameter: 0.7 }, scene);
-  explosion.position = alien.position.add(new BABYLON.Vector3(0, 1.2, 0));
-  explosion.material = material;
+export function createAlienExplosion(scene, alienOrPos, material, effectsScale = 1) {
+  if (!scene || !alienOrPos) return;
+  const basePos = alienOrPos.position ? alienOrPos.position : alienOrPos;
+  if (!basePos || typeof basePos.add !== "function") return;
+
+  const explosion = BABYLON.MeshBuilder.CreateSphere("AlienExplosion", { diameter: 0.7 * effectsScale }, scene);
+  explosion.position = basePos.add(new BABYLON.Vector3(0, 1.2, 0));
+
+  if (material && material instanceof BABYLON.Material) {
+    explosion.material = material;
+  } else {
+    const fallbackMat = new BABYLON.StandardMaterial(`ExplosionMat_${Math.random()}`, scene);
+    const col = (material instanceof BABYLON.Color3) ? material : new BABYLON.Color3(0.2, 0.9, 0.3);
+    fallbackMat.diffuseColor = col;
+    fallbackMat.emissiveColor = col.scale(0.8);
+    explosion.material = fallbackMat;
+  }
 
   BABYLON.Animation.CreateAndStartAnimation(
     "explode",
@@ -150,7 +163,12 @@ export function createAlienExplosion(scene, alien, material, effectsScale = 1) {
     new BABYLON.Vector3(3 * effectsScale, 3 * effectsScale, 3 * effectsScale),
     BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT,
     null,
-    () => explosion.dispose()
+    () => {
+      if (explosion.material && explosion.material.name.startsWith("ExplosionMat_")) {
+        explosion.material.dispose();
+      }
+      explosion.dispose();
+    }
   );
 }
 
@@ -328,7 +346,8 @@ export function createAlienGibs(scene, position, variantType = "spitter", impact
     wasp: { diffuse: new BABYLON.Color3(0.15, 0.85, 1.0), emissive: new BABYLON.Color3(0.1, 0.5, 0.8) },
     runner: { diffuse: new BABYLON.Color3(0.85, 0.25, 1.0), emissive: new BABYLON.Color3(0.5, 0.1, 0.8) },
     brute: { diffuse: new BABYLON.Color3(1.0, 0.42, 0.08), emissive: new BABYLON.Color3(0.7, 0.25, 0.04) },
-    boss: { diffuse: new BABYLON.Color3(1.0, 0.1, 0.08), emissive: new BABYLON.Color3(0.8, 0.05, 0.02) }
+    boss: { diffuse: new BABYLON.Color3(1.0, 0.1, 0.08), emissive: new BABYLON.Color3(0.8, 0.05, 0.02) },
+    pod: { diffuse: new BABYLON.Color3(0.25, 0.65, 0.25), emissive: new BABYLON.Color3(0.08, 0.25, 0.08) }
   };
   const color = gibColors[variantType] || gibColors.spitter;
 

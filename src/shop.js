@@ -1,6 +1,5 @@
 import { saveGame } from "./saveSystem.js";
 import { updateUI } from "./ui.js";
-import { purchaseStarterPack } from "./iap.js";
 
 const SHOP_ITEMS = {
   rifleDamage: { label: "Rifle Damage", baseCost: 90, max: 10 },
@@ -16,11 +15,6 @@ export function setupShop(context) {
   ui.shopButtons.forEach(button => {
     button.addEventListener("click", () => buyUpgrade(context, button.dataset.shopItem));
   });
-
-  const starterPackBtn = document.getElementById("buyStarterPackBtn");
-  if (starterPackBtn) {
-    starterPackBtn.addEventListener("click", () => purchaseStarterPack(context));
-  }
 
   refreshShop(context);
 }
@@ -82,18 +76,6 @@ export function refreshShop(context) {
     }
     button.disabled = level >= item.max;
   });
-
-  const starterPackBtn = document.getElementById("buyStarterPackBtn");
-  if (starterPackBtn) {
-    if (game.noAds) {
-      starterPackBtn.textContent = "VIP DEFENDER (ACTIVE)";
-      starterPackBtn.disabled = true;
-      starterPackBtn.style.opacity = "0.7";
-    } else {
-      starterPackBtn.textContent = "VIP STARTER PACK ($2.99)";
-      starterPackBtn.disabled = false;
-    }
-  }
 }
 
 function getUpgradeCost(item, level) {

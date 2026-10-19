@@ -11,33 +11,33 @@ export function isMobileDevice() {
 const PRESETS = {
   low: {
     label: "Low",
-    hardwareScaling: 1.85,
-    effectsScale: 0.50,
-    fogDensity: 0.008
+    hardwareScaling: 1.15,
+    effectsScale: 0.60,
+    fogDensity: 0.0
   },
   medium: {
     label: "Medium",
-    hardwareScaling: 1.40,
-    effectsScale: 0.80,
-    fogDensity: 0.01
+    hardwareScaling: 1.0,
+    effectsScale: 0.85,
+    fogDensity: 0.0
   },
   high: {
-    label: "High",
-    hardwareScaling: 1.05,
+    label: "High (Crisp)",
+    hardwareScaling: 1.0,
     effectsScale: 1.10,
-    fogDensity: 0.012
+    fogDensity: 0.0
   },
   ultra: {
-    label: "Ultra 120Hz",
-    hardwareScaling: 0.85,
+    label: "Ultra (Super-Res)",
+    hardwareScaling: 0.75,
     effectsScale: 1.35,
-    fogDensity: 0.012
+    fogDensity: 0.0
   }
 };
 
 export function setupGraphicsQuality(context) {
   const { game, ui } = context;
-  const initialQuality = game.graphicsQuality || (isMobileDevice() ? "medium" : "high");
+  const initialQuality = game.graphicsQuality || "high";
   applyGraphicsQuality(context, initialQuality, false);
 
   ui.graphicsButtons?.forEach(button => {
@@ -49,15 +49,15 @@ export function setupGraphicsQuality(context) {
 }
 
 export function applyGraphicsQuality(context, quality, shouldSave = true) {
-  const preset = PRESETS[quality] || PRESETS.medium;
+  const preset = PRESETS[quality] || PRESETS.high;
   const { engine, scene, game, ui } = context;
   const isMobile = isMobileDevice();
 
-  game.graphicsQuality = quality in PRESETS ? quality : "medium";
+  game.graphicsQuality = quality in PRESETS ? quality : "high";
   game.effectsScale = preset.effectsScale;
 
-  // On mobile, ensure hardware scaling keeps fillrate locked at 60 FPS
-  const effectiveScaling = isMobile ? Math.max(1.35, preset.hardwareScaling) : preset.hardwareScaling;
+  // Razor-sharp native resolution across both mobile and desktop (no forced downsampling blur)
+  const effectiveScaling = preset.hardwareScaling;
   engine.setHardwareScalingLevel(effectiveScaling);
   scene.fogDensity = preset.fogDensity;
 

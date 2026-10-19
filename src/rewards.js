@@ -3,10 +3,15 @@ import { requestPointerLockSafely } from "./pointerLock.js";
 import { playSound, broadcastRadioComms } from "./sound.js";
 import { showInterstitialAtBreakIfAvailable } from "./adBridge.js";
 import { triggerHaptic } from "./haptics.js";
-import { STAGES, getNextStageKey, selectStage } from "./stages.js";
+import { STAGES, getStageData, getNextStageKey, selectStage, getStageNumber } from "./stages.js";
 import { returnToMainMenu } from "./pause.js";
 import { refreshShop } from "./shop.js";
 import { triggerAchievement } from "./achievements.js";
+import { saveGame } from "./saveSystem.js";
+import { clearAliens } from "./aliens.js";
+import { clearPickups } from "./pickups.js";
+import { resetPlayer } from "./player.js";
+import { createStarterTowers, refreshTowerModels } from "./towers.js";
 
 const PERK_POOL = [
   {
@@ -106,11 +111,12 @@ export function showRewardChoices(context) {
   const defensesHelped = game.waveDefenseKills > 0;
   const justClearedWave = ((game.wave - 2) % 3) + 1;
   const nextWaveNum = justClearedWave + 1;
+  const totalWaveAliens = (game.wavePlayerKills || 0) + (game.waveDefenseKills || 0);
 
-  ui.rewardTitle.textContent = `WAVE ${justClearedWave} / 3 CLEARED`;
+  ui.rewardTitle.textContent = `WAVE ${justClearedWave} OF 3 CLEARED`;
   ui.rewardSummary.textContent = defensesHelped
-    ? `Choose one perk card before Wave ${nextWaveNum}/3. Rifle kills: ${game.wavePlayerKills}. Defense kills: ${game.waveDefenseKills}.`
-    : `Choose one perk card before Wave ${nextWaveNum}/3. You eliminated ${game.wavePlayerKills} aliens this wave.`;
+    ? `All ${totalWaveAliens} aliens eliminated! (You: ${game.wavePlayerKills} | Base Sentry: ${game.waveDefenseKills}). Choose one perk card before Wave ${nextWaveNum} of 3.`
+    : `All ${totalWaveAliens} aliens eliminated! Choose one perk card before Wave ${nextWaveNum} of 3.`;
 
   // Draw 3 random distinct perks
   const shuffled = [...PERK_POOL].sort(() => 0.5 - Math.random());
@@ -148,9 +154,9 @@ export function showStageClearModal(context) {
   triggerHaptic("heavy");
 
   const currentStageKey = game.selectedStage || "lahore-outskirts";
-  const currentStage = STAGES[currentStageKey] || STAGES["lahore-outskirts"];
+  const currentStage = getStageData(currentStageKey);
   const nextStageKey = getNextStageKey(currentStageKey);
-  const nextStage = nextStageKey ? STAGES[nextStageKey] : null;
+  const nextStage = nextStageKey ? getStageData(nextStageKey) : null;
 
   const coreHealthPercent = Math.max(0, Math.min(100, Math.round((game.baseHealth / game.maxBaseHealth) * 100)));
   let rank = "B";
@@ -202,7 +208,7 @@ export function showStageClearModal(context) {
     if (ui.stageClearSubtitle) {
       ui.stageClearSubtitle.textContent = nextStage
         ? `${currentStage.label.toUpperCase()} SECURED!`
-        : `ALL 6 CITIES LIBERATED FROM THE ALIEN SWARM!`;
+        : `ALL 20 CITIES LIBERATED FROM THE ALIEN SWARM!`;
     }
     if (ui.stageClearWaves) {
       ui.stageClearWaves.textContent = "3 / 3 WAVES COMPLETED";
@@ -224,34 +230,92 @@ export function showStageClearModal(context) {
       if (nextStage) {
         ui.stageClearNextBtn.style.display = "block";
         ui.stageClearNextBtn.textContent = `PROCEED TO NEXT STAGE: ${nextStage.label.toUpperCase()} [ENTER]`;
-        ui.stageClearNextBtn.onclick = async () => {
-          ui.stageClearOverlay.style.display = "none";
+        const handleProceed = async (e) => {
+          e?.preventDefault?.();
+          e?.stopPropagation?.();
+          if (ui.stageClearOverlay) ui.stageClearOverlay.style.display = "none";
+          document.body.classList.remove("is-defeat-active");
+          document.body.classList.remove("is-game-over");
+
+          // Advance to next city stage
           selectStage(context, nextStageKey);
           game.wave = 1;
-          game.stage = (game.stage || 1) + 1;
+          game.stage = getStageNumber(nextStageKey);
+
+          // Clear entities and leftovers from previous stage
+          clearAliens(game, context);
+          if (game.alienProjectiles) {
+            game.alienProjectiles.forEach(p => p.mesh?.dispose?.());
+            game.alienProjectiles = [];
+          }
+          clearPickups(game);
+
+          // Reset player safely inside base and deploy fresh starter towers
+          if (context.camera) resetPlayer(context.camera);
+          createStarterTowers(context);
+          refreshTowerModels(context);
+          context.refreshStageTheme?.();
+
+          // Save campaign progression
+          saveGame(game);
+
           broadcastRadioComms(`Deploying squad to ${nextStage.label}. Protect the fusion core!`, true);
           updateUI(ui, game);
+
           if (!game.noAds) {
-            await showInterstitialAtBreakIfAvailable("stage-clear", game.stage);
+            showInterstitialAtBreakIfAvailable("stage-clear", game.stage).catch(() => {});
           }
+
           game.paused = false;
+          game.gameOver = false;
           requestPointerLockSafely(canvas);
           context.startNextWave();
         };
+
+        ui.stageClearNextBtn.onclick = handleProceed;
+        ui.stageClearNextBtn.onpointerup = handleProceed;
+        ui.stageClearNextBtn.ontouchend = handleProceed;
       } else {
         ui.stageClearNextBtn.style.display = "block";
         ui.stageClearNextBtn.textContent = "CAMPAIGN COMPLETE — PLAY ENDLESS DEFENSE [ENTER]";
-        ui.stageClearNextBtn.onclick = async () => {
-          ui.stageClearOverlay.style.display = "none";
+        const handleEndless = async (e) => {
+          e?.preventDefault?.();
+          e?.stopPropagation?.();
+          if (ui.stageClearOverlay) ui.stageClearOverlay.style.display = "none";
+          document.body.classList.remove("is-defeat-active");
+          document.body.classList.remove("is-game-over");
+
           selectStage(context, "lahore-outskirts");
+          game.isEndless = true;
           game.difficulty = "hard";
           game.wave = 1;
+          game.stage = 1;
+
+          clearAliens(game, context);
+          if (game.alienProjectiles) {
+            game.alienProjectiles.forEach(p => p.mesh?.dispose?.());
+            game.alienProjectiles = [];
+          }
+          clearPickups(game);
+
+          if (context.camera) resetPlayer(context.camera);
+          createStarterTowers(context);
+          refreshTowerModels(context);
+          context.refreshStageTheme?.();
+
+          saveGame(game);
           broadcastRadioComms("Entering Endless Nightmare Defense! Swarm threat level maximum!", true);
           updateUI(ui, game);
+
           game.paused = false;
+          game.gameOver = false;
           requestPointerLockSafely(canvas);
           context.startNextWave();
         };
+
+        ui.stageClearNextBtn.onclick = handleEndless;
+        ui.stageClearNextBtn.onpointerup = handleEndless;
+        ui.stageClearNextBtn.ontouchend = handleEndless;
       }
     }
 

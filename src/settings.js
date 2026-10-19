@@ -6,10 +6,13 @@ import { setMasterVolume, setMusicVolume, setSfxVolume, setVoiceVolume, setVoice
 import { setSensitivityMultiplier, getSensitivityMultiplier } from "./input.js";
 import { returnToMainMenu } from "./pause.js";
 import { requestPointerLockSafely } from "./pointerLock.js";
+import { saveGame } from "./saveSystem.js";
 
 const SETTINGS_STORAGE_KEY = "alien_defense_settings_v1";
+let currentContext = null;
 
-export function loadSettings() {
+export function loadSettings(context = null) {
+  if (context) currentContext = context;
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) return;
@@ -20,6 +23,9 @@ export function loadSettings() {
     if (typeof data.voice === "number") setVoiceVolume(data.voice);
     if (typeof data.voiceEnabled === "boolean") setVoiceEnabled(data.voiceEnabled);
     if (typeof data.sensitivity === "number") setSensitivityMultiplier(data.sensitivity);
+    if (typeof data.autoFire === "boolean" && currentContext?.game) {
+      currentContext.game.autoFire = data.autoFire;
+    }
   } catch (err) {
     console.warn("Failed to load settings:", err);
   }
@@ -34,7 +40,8 @@ export function saveSettings() {
       sfx: audio.sfx,
       voice: audio.voice,
       voiceEnabled: audio.voiceEnabled,
-      sensitivity: getSensitivityMultiplier()
+      sensitivity: getSensitivityMultiplier(),
+      autoFire: Boolean(currentContext?.game?.autoFire)
     };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(data));
   } catch (err) {
@@ -43,24 +50,44 @@ export function saveSettings() {
 }
 
 export function openSettings(context) {
+  if (context) currentContext = context;
   const overlay = document.getElementById("settingsOverlay");
   if (!overlay) return;
   overlay.style.display = "flex";
-  if (context?.game && context.game.started && !context.game.gameOver) {
+
+  const isPlaying = Boolean(context?.game && context.game.started && !context.game.gameOver);
+  if (isPlaying) {
     context.game.paused = true;
   }
   if (document.exitPointerLock) {
     document.exitPointerLock();
   }
+
+  const resumeBtn = document.getElementById("resumeGameBtn");
+  const restartBtn = document.getElementById("settingsRestartBtn");
+  const quitBtn = document.getElementById("settingsQuitBtn");
+  if (resumeBtn) {
+    resumeBtn.textContent = isPlaying ? "RESUME MISSION" : "CLOSE SETTINGS";
+  }
+  if (restartBtn) {
+    restartBtn.style.display = isPlaying ? "block" : "none";
+  }
+  if (quitBtn) {
+    quitBtn.style.display = isPlaying ? "block" : "none";
+  }
+
   syncSettingsUI();
 }
 
 export function closeSettings(context) {
+  if (context) currentContext = context;
   const overlay = document.getElementById("settingsOverlay");
   if (!overlay) return;
   overlay.style.display = "none";
   saveSettings();
-  if (context?.game && context.game.started && !context.game.gameOver) {
+
+  const isPlaying = Boolean(context?.game && context.game.started && !context.game.gameOver);
+  if (isPlaying) {
     context.game.paused = false;
     if (context.canvas) {
       requestPointerLockSafely(context.canvas);
@@ -111,14 +138,59 @@ function syncSettingsUI() {
     sensSlider.value = Math.round(sens * 100);
     sensVal.textContent = `${sens.toFixed(1)}x`;
   }
+
+  const autoFire = Boolean(currentContext?.game?.autoFire);
+  const settingsAutoFire = document.getElementById("settingsAutoFireToggle");
+  if (settingsAutoFire) {
+    settingsAutoFire.checked = autoFire;
+  }
+  const controlsAutoFire = document.getElementById("autoFireToggle");
+  if (controlsAutoFire) {
+    controlsAutoFire.checked = autoFire;
+  }
 }
 
 export function setupSettingsModal(context) {
-  loadSettings();
+  currentContext = context;
+  loadSettings(context);
 
-  const mobileBtn = document.getElementById("mobileSettingsBtn");
-  if (mobileBtn) {
-    mobileBtn.addEventListener("click", () => {
+  const settingsAutoFire = document.getElementById("settingsAutoFireToggle");
+  if (settingsAutoFire) {
+    settingsAutoFire.checked = Boolean(context.game?.autoFire);
+    settingsAutoFire.addEventListener("change", (e) => {
+      if (context.game) {
+        context.game.autoFire = Boolean(e.target.checked);
+        saveGame(context.game);
+      }
+      const controlsAutoFire = document.getElementById("autoFireToggle");
+      if (controlsAutoFire) controlsAutoFire.checked = Boolean(e.target.checked);
+      saveSettings();
+    });
+  }
+
+  const controlsAutoFire = document.getElementById("autoFireToggle");
+  if (controlsAutoFire) {
+    controlsAutoFire.checked = Boolean(context.game?.autoFire);
+    controlsAutoFire.addEventListener("change", (e) => {
+      if (context.game) {
+        context.game.autoFire = Boolean(e.target.checked);
+        saveGame(context.game);
+      }
+      const settingsAutoFire = document.getElementById("settingsAutoFireToggle");
+      if (settingsAutoFire) settingsAutoFire.checked = Boolean(e.target.checked);
+      saveSettings();
+    });
+  }
+
+  let lastOpenTime = 0;
+  const attachOpenListener = (btn) => {
+    if (!btn) return;
+    const handleOpen = (e) => {
+      const now = performance.now();
+      if (now - lastOpenTime < 350) return;
+      lastOpenTime = now;
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
       playSound("click");
       const overlay = document.getElementById("settingsOverlay");
       if (overlay && overlay.style.display === "flex") {
@@ -126,8 +198,13 @@ export function setupSettingsModal(context) {
       } else {
         openSettings(context);
       }
-    });
-  }
+    };
+    btn.onclick = handleOpen;
+  };
+
+  attachOpenListener(document.getElementById("mobileSettingsBtn"));
+  attachOpenListener(document.getElementById("menuSettingsButton"));
+  attachOpenListener(document.getElementById("pauseSettingsButton"));
 
   // Keyboard shortcut: Escape toggles settings modal
   window.addEventListener("keydown", event => {
@@ -135,8 +212,6 @@ export function setupSettingsModal(context) {
       const overlay = document.getElementById("settingsOverlay");
       if (overlay && overlay.style.display === "flex") {
         closeSettings(context);
-      } else if (context.game && context.game.started && !context.game.gameOver) {
-        openSettings(context);
       }
     }
   });
@@ -186,24 +261,30 @@ export function setupSettingsModal(context) {
     if (sensVal) sensVal.textContent = `${val.toFixed(1)}x`;
   });
 
-  const resumeBtn = document.getElementById("resumeGameBtn");
-  resumeBtn?.addEventListener("click", () => {
-    playSound("click");
-    closeSettings(context);
-  });
+  let lastCloseTime = 0;
+  const attachCloseAction = (btn, action) => {
+    if (!btn) return;
+    const handleClose = (e) => {
+      const now = performance.now();
+      if (now - lastCloseTime < 350) return;
+      lastCloseTime = now;
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      playSound("click");
+      action();
+    };
+    btn.onclick = handleClose;
+  };
 
-  const restartBtn = document.getElementById("settingsRestartBtn");
-  restartBtn?.addEventListener("click", () => {
-    playSound("click");
+  attachCloseAction(document.getElementById("settingsCloseBtn"), () => closeSettings(context));
+  attachCloseAction(document.getElementById("resumeGameBtn"), () => closeSettings(context));
+  attachCloseAction(document.getElementById("settingsRestartBtn"), () => {
     closeSettings(context);
     if (context.resetGame) {
       context.resetGame();
     }
   });
-
-  const quitBtn = document.getElementById("settingsQuitBtn");
-  quitBtn?.addEventListener("click", () => {
-    playSound("click");
+  attachCloseAction(document.getElementById("settingsQuitBtn"), () => {
     closeSettings(context);
     returnToMainMenu(context);
   });

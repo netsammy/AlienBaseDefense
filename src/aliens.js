@@ -90,6 +90,67 @@ const ALIEN_VARIANTS = [
 ];
 
 const ALIEN_VARIANT_BY_TYPE = Object.fromEntries(ALIEN_VARIANTS.map(variant => [variant.type, variant]));
+const dyingAlienNodes = new Set();
+
+function enhanceAlienMeshesAndMaterials(root, variant) {
+  try {
+    root.getChildMeshes(false).forEach(mesh => {
+      mesh.metadata = { alienRoot: root };
+      mesh.isPickable = true;
+
+      // Prevent GlowLayer from blurring the alien body contours
+      const scn = mesh.getScene();
+      if (scn?.glowLayer) {
+        scn.glowLayer.removeIncludedOnlyMesh?.(mesh);
+      }
+
+      const mat = mesh.material;
+      if (mat) {
+        if (mat.getClassName && mat.getClassName() === "PBRMaterial") {
+          // Natural balanced response preserving detailed 3D carapace textures, normal maps and metallic/roughness
+          mat.directIntensity = 1.0;
+          mat.environmentIntensity = 0.85;
+          if (typeof mat.roughness === "number") {
+            mat.roughness = Math.min(Math.max(mat.roughness, 0.4), 0.85);
+          }
+
+          // Keep authentic model textures intact - do not wash out with neon emissive tints
+          if (mat.emissiveColor && !mat.emissiveTexture) {
+            mat.emissiveColor = new BABYLON.Color3(0, 0, 0);
+          }
+
+          // Enforce 4x anisotropic filtering and trilinear sampling on all textures to eliminate blurring
+          const textures = [mat.albedoTexture, mat.emissiveTexture, mat.bumpTexture, mat.metallicTexture, mat.ambientTexture].filter(Boolean);
+          textures.forEach(t => {
+            try {
+              t.anisotropicFilteringLevel = 4;
+              if (typeof t.updateSamplingMode === "function") {
+                t.updateSamplingMode(BABYLON.Texture.TRILINEAR_SAMPLINGMODE);
+              }
+            } catch (e) {}
+          });
+        } else if (mat.getClassName && mat.getClassName() === "StandardMaterial") {
+          mat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+          if (mat.diffuseTexture) {
+            // If the model has an authentic texture map, preserve it without color overriding
+            try {
+              mat.diffuseTexture.anisotropicFilteringLevel = 4;
+              if (typeof mat.diffuseTexture.updateSamplingMode === "function") {
+                mat.diffuseTexture.updateSamplingMode(BABYLON.Texture.TRILINEAR_SAMPLINGMODE);
+              }
+            } catch (e) {}
+          } else if (variant && variant.color) {
+            // Fallback procedural capsule mesh only
+            mat.diffuseColor = variant.color;
+            mat.emissiveColor = variant.color.scale(0.04);
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.warn("enhanceAlienMeshesAndMaterials error:", err);
+  }
+}
 
 export function createAlien(context, position, difficulty, variant = ALIEN_VARIANTS[0]) {
   const { scene, game, materials, loadedAssets } = context;
@@ -111,7 +172,8 @@ export function createAlien(context, position, difficulty, variant = ALIEN_VARIA
 
   const variantMat = materials.alien.clone(`AlienMat_${variant.type}_${Math.random()}`);
   variantMat.diffuseColor = variant.color;
-  variantMat.emissiveColor = variant.color.scale(0.38);
+  variantMat.emissiveColor = variant.color.scale(0.08);
+  variantMat.specularColor = new BABYLON.Color3(0.4, 0.4, 0.4);
 
   // Mix old and new 3D models seamlessly across spawns
   const candidateKeys = variant.assetKeys || (variant.assetKey ? [variant.assetKey] : []);
@@ -131,85 +193,122 @@ export function createAlien(context, position, difficulty, variant = ALIEN_VARIA
     || loadedAssets?.alienSpitter
     || loadedAssets?.alienScoutWasp
     || loadedAssets?.alienGoliathBoss;
-  const clonedModel = { root: cloneLoadedAsset(modelAsset, `AlienModel_${variant.type}_${chosenKey}`, {
+  const modelRoot = cloneLoadedAsset(modelAsset, `AlienModel_${variant.type}_${chosenKey}`, {
     parent: root,
     position: new BABYLON.Vector3(0, 0, 0),
     rotation: new BABYLON.Vector3(0, 0, 0),
     scaling: new BABYLON.Vector3(1, 1, 1),
     metadata: { alienRoot: root }
-  }), animationGroups: [] };
-
-  const modelRoot = clonedModel.root;
+  });
 
   if (modelRoot) {
-    const fitted = fitModelToHeight(modelRoot, variant.height, 0);
-    const bounds = getModelBounds(modelRoot);
-    if (!fitted || !bounds || bounds.size.y < 0.2) {
-      modelRoot.dispose();
-    } else {
-    root.animationGroups = clonedModel.animationGroups;
-    root.currentAnimation = null;
-    root.modelRoot = modelRoot;
-    root.baseScale = modelRoot.scaling.clone();
-    root.basePosition = modelRoot.position.clone();
-    root.baseRotation = modelRoot.rotation.clone();
-    root.animWalkPhase = Math.random() * 10;
-    root.animBreathPhase = Math.random() * 10;
-    root.flinchAmount = 0;
-    root.flinchDir = 0;
-    root.attackAnimTimer = 0;
-    root.attackAnimType = null;
-    root.getChildMeshes(false).forEach(mesh => {
-      mesh.metadata = { alienRoot: root };
-      mesh.isPickable = true;
-    });
-    createAlienHealthBar(scene, root, variant.height);
-    attachAlienTapetumEyes(scene, root, variant);
-    addAlienToShadowMap(context, root);
-    playAlienAnimation(root, "idle", true);
-    game.aliens.push(root);
-    return root;
+    try {
+      const fitted = fitModelToHeight(modelRoot, variant.height, 0);
+      const bounds = getModelBounds(modelRoot);
+      if (!fitted || !bounds || bounds.size.y < 0.2) {
+        modelRoot.dispose();
+      } else {
+        root.animationGroups = modelRoot.animationGroups || [];
+        root.currentAnimation = null;
+        root.modelRoot = modelRoot;
+        root.baseScale = modelRoot.scaling.clone();
+        root.basePosition = modelRoot.position.clone();
+        root.baseRotation = modelRoot.rotation.clone();
+        root.animWalkPhase = Math.random() * 10;
+        root.animBreathPhase = Math.random() * 10;
+        root.flinchAmount = 0;
+        root.flinchDir = 0;
+        root.attackAnimTimer = 0;
+        root.attackAnimType = null;
+        enhanceAlienMeshesAndMaterials(root, variant);
+        createAlienHealthBar(scene, root, variant.height);
+        attachAlienTapetumEyes(scene, root, variant);
+        addAlienToShadowMap(context, root);
+        playAlienAnimation(root, "idle", true);
+        game.aliens.push(root);
+        return root;
+      }
+    } catch (e) {
+      console.warn("3D alien model configuration failed, using procedural fallback:", e);
+      try { modelRoot.dispose(); } catch (err) {}
     }
   }
 
-  const body = BABYLON.MeshBuilder.CreateCapsule("AlienBody", {
-    radius: 0.65,
-    height: 2.5,
-    tessellation: 16
-  }, scene);
-  body.parent = root;
-  body.position.y = 1.35;
-  body.scaling = new BABYLON.Vector3(variant.scale, variant.scale, variant.scale);
-  body.material = variantMat;
-  body.metadata = { alienRoot: root };
+  try {
+    const body = BABYLON.MeshBuilder.CreateCapsule("AlienBody", {
+      radius: 0.65,
+      height: 2.5,
+      tessellation: 16
+    }, scene);
+    body.parent = root;
+    body.position.y = 1.35;
+    body.scaling = new BABYLON.Vector3(variant.scale, variant.scale, variant.scale);
+    body.material = variantMat;
+    body.metadata = { alienRoot: root };
 
-  const head = BABYLON.MeshBuilder.CreateSphere("AlienHead", { diameter: 1.15 }, scene);
-  head.parent = root;
-  head.position.y = 2.85;
-  head.scaling = new BABYLON.Vector3(1.15 * variant.scale, variant.scale, variant.scale);
-  head.material = variantMat;
-  head.metadata = { alienRoot: root };
+    root.modelRoot = body;
+    root.baseScale = body.scaling.clone();
+    root.basePosition = body.position.clone();
+    root.baseRotation = body.rotation.clone();
+    root.animWalkPhase = Math.random() * 10;
+    root.animBreathPhase = Math.random() * 10;
 
-  for (const x of [-0.25, 0.25]) {
-    const eye = BABYLON.MeshBuilder.CreateSphere("AlienEye", { diameter: 0.20 }, scene);
-    eye.parent = root;
-    eye.position = new BABYLON.Vector3(x, 2.92, -0.48);
-    eye.material = materials.alienEye;
+    const head = BABYLON.MeshBuilder.CreateSphere("AlienHead", { diameter: 1.15 }, scene);
+    head.parent = body;
+    head.position.y = 1.45;
+    head.scaling = new BABYLON.Vector3(1.15, 1.0, 1.0);
+    head.material = variantMat;
+    head.metadata = { alienRoot: root };
+
+    for (const x of [-0.25, 0.25]) {
+      const eye = BABYLON.MeshBuilder.CreateSphere("AlienEye", { diameter: 0.20 }, scene);
+      eye.parent = head;
+      eye.position = new BABYLON.Vector3(x, 0.12, 0.48);
+      eye.material = materials.alienEye;
+    }
+
+    // Walking arms
+    const leftArm = BABYLON.MeshBuilder.CreateCylinder("AlienLeftArm", { diameter: 0.18, height: 1.5 }, scene);
+    leftArm.parent = body;
+    leftArm.position = new BABYLON.Vector3(-0.75, 0.2, 0);
+    leftArm.rotation.z = 0.45;
+    leftArm.material = variantMat;
+    leftArm.metadata = { alienRoot: root };
+    root.leftArm = leftArm;
+
+    const rightArm = BABYLON.MeshBuilder.CreateCylinder("AlienRightArm", { diameter: 0.18, height: 1.5 }, scene);
+    rightArm.parent = body;
+    rightArm.position = new BABYLON.Vector3(0.75, 0.2, 0);
+    rightArm.rotation.z = -0.45;
+    rightArm.material = variantMat;
+    rightArm.metadata = { alienRoot: root };
+    root.rightArm = rightArm;
+
+    // Walking legs
+    const leftLeg = BABYLON.MeshBuilder.CreateCylinder("AlienLeftLeg", { diameter: 0.20, height: 1.3 }, scene);
+    leftLeg.parent = root;
+    leftLeg.position = new BABYLON.Vector3(-0.35, 0.65, 0);
+    leftLeg.scaling = new BABYLON.Vector3(variant.scale, variant.scale, variant.scale);
+    leftLeg.material = variantMat;
+    leftLeg.metadata = { alienRoot: root };
+    root.leftLeg = leftLeg;
+
+    const rightLeg = BABYLON.MeshBuilder.CreateCylinder("AlienRightLeg", { diameter: 0.20, height: 1.3 }, scene);
+    rightLeg.parent = root;
+    rightLeg.position = new BABYLON.Vector3(0.35, 0.65, 0);
+    rightLeg.scaling = new BABYLON.Vector3(variant.scale, variant.scale, variant.scale);
+    rightLeg.material = variantMat;
+    rightLeg.metadata = { alienRoot: root };
+    root.rightLeg = rightLeg;
+
+    enhanceAlienMeshesAndMaterials(root, variant);
+    createAlienHealthBar(scene, root, variant.height);
+    attachAlienTapetumEyes(scene, root, variant);
+    addAlienToShadowMap(context, root);
+  } catch (err) {
+    console.error("Procedural alien creation error:", err);
   }
 
-  for (const x of [-0.75, 0.75]) {
-    const arm = BABYLON.MeshBuilder.CreateCylinder("AlienArm", { diameter: 0.18, height: 1.6 }, scene);
-    arm.parent = root;
-    arm.position = new BABYLON.Vector3(x, 1.5, 0);
-    arm.rotation.z = x > 0 ? -0.5 : 0.5;
-    arm.scaling = new BABYLON.Vector3(variant.scale, variant.scale, variant.scale);
-    arm.material = variantMat;
-    arm.metadata = { alienRoot: root };
-  }
-
-  createAlienHealthBar(scene, root, variant.height);
-  attachAlienTapetumEyes(scene, root, variant);
-  addAlienToShadowMap(context, root);
   game.aliens.push(root);
   return root;
 }
@@ -218,6 +317,10 @@ export function spawnWave(context) {
   const { game, ui } = context;
   if (game.gameOver) return;
   clearAliens(game, context);
+  if (game.alienProjectiles) {
+    game.alienProjectiles.forEach(p => p.mesh?.dispose?.());
+    game.alienProjectiles = [];
+  }
   const difficulty = getWaveDifficulty(game);
   game.stage = difficulty.stage;
   game.spawnCount = difficulty.count;
@@ -225,6 +328,8 @@ export function spawnWave(context) {
   game.wavePlayerKills = 0;
   game.waveDefenseKills = 0;
   game.waveStarting = true;
+  game.waveCombatActive = false;
+  game.activeWaveAlienCount = 0;
   game.waveCountdown = 3;
   game.playerInvincibleUntil = performance.now() + difficulty.safetyShieldMs;
   setMusicState("ambient");
@@ -261,13 +366,22 @@ function finishWaveSpawn(context, difficulty) {
   if (game.gameOver) return;
   game.waveStarting = false;
 
-  for (let i = 0; i < difficulty.count; i++) {
-    const pos = getSpawnPosition(game, difficulty, i);
-    const variant = getForcedWaveVariant(game, difficulty, i) || pickWaveVariant(context, difficulty, i);
-    createAlien(context, pos, difficulty, variant);
+  const count = difficulty.count;
+  for (let i = 0; i < count; i++) {
+    try {
+      const pos = getSpawnPosition(game, difficulty, i);
+      const variant = getForcedWaveVariant(game, difficulty, i) || pickWaveVariant(context, difficulty, i);
+      createAlien(context, pos, difficulty, variant);
+    } catch (err) {
+      console.warn("Wave spawn error on alien " + i, err);
+    }
   }
 
-  const isBossWave = (game.wave === 3 || game.wave % 5 === 0);
+  game.activeWaveAlienCount = Math.max(1, (game.aliens || []).filter(a => a && !a.dead && a.variant !== "pod").length);
+  game.waveCombatActive = true;
+
+  const waveInStage = (((game.wave || 1) - 1) % 3) + 1;
+  const isBossWave = waveInStage === 3 || (game.isEndless && game.wave % 5 === 0);
   ui.message.textContent = isBossWave
     ? "BOSS WARNING! Goliath Bio-Titan has entered the arena. Protect the fusion core!"
     : `${getAlienMixLabel(difficulty)} Safety shield active.`;
@@ -277,7 +391,7 @@ function finishWaveSpawn(context, difficulty) {
     broadcastRadioComms("Warning! Goliath class bio-titan approaching perimeter!", true);
   } else {
     setMusicState("combat");
-    broadcastRadioComms(`Sector Wave ${game.wave} incoming. Defend the core.`);
+    broadcastRadioComms(`Sector Wave ${waveInStage} incoming. Defend the core.`);
   }
   setTimeout(() => {
     if (!game.gameOver) ui.message.textContent = "Tip: move backwards, sprint with Shift, and keep aliens outside the red zone.";
@@ -286,31 +400,51 @@ function finishWaveSpawn(context, difficulty) {
 }
 
 function getSpawnPosition(game, difficulty, index) {
-  if (game.wave === 1 && index === 0) {
-    return new BABYLON.Vector3(0, 0, 18);
+  const waveInStage = (((game.wave || 1) - 1) % 3) + 1;
+  const isBossWave = waveInStage === 3 || (game.isEndless && game.wave % 5 === 0);
+
+  // In boss wave, boss spawns directly in front at 19m
+  if (isBossWave && index === 0) {
+    return new BABYLON.Vector3(0, 0, 19);
   }
 
-  const angle = Math.random() * Math.PI * 2;
+  // Arena spawn distances: between 14m and 23m
   const arenaR = game.arenaRadius || 28;
-  const minSpawn = arenaR - 6; // ~22m
-  const maxSpawn = arenaR - 1.5; // ~26.5m (safely within boundary fence)
+  const minSpawn = Math.max(13, difficulty.spawnMin || 16);
+  const maxSpawn = Math.min(arenaR - 2.5, difficulty.spawnMax || 24);
   const distance = minSpawn + Math.random() * (maxSpawn - minSpawn);
+
+  // Spawn with high forward concentration so enemies are immediately visible
+  // Even slots: front arc facing +Z towards base and player
+  // Odd slots: alternating left and right flanks
+  let angle;
+  const slot = index % 4;
+  if (slot === 0 || slot === 2) {
+    angle = (Math.PI / 2) + (Math.random() - 0.5) * 1.4;
+  } else if (slot === 1) {
+    angle = (Math.PI / 2) + 0.8 + Math.random() * 0.9;
+  } else {
+    angle = (Math.PI / 2) - 0.8 - Math.random() * 0.9;
+  }
+
   return new BABYLON.Vector3(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
 }
 
 function pickWaveVariant(context, difficulty, index) {
   const { game } = context;
-  if (index === 0 && (game.wave === 3 || game.wave % 5 === 0)) return ALIEN_VARIANT_BY_TYPE.boss;
+  const waveInStage = (((game.wave || 1) - 1) % 3) + 1;
+  if (index === 0 && (waveInStage === 3 || (game.isEndless && game.wave % 5 === 0))) return ALIEN_VARIANT_BY_TYPE.boss;
   return pickAlienVariant(difficulty.stage);
 }
 
 function getForcedWaveVariant(game, difficulty, index) {
-  if (index === 0 && (game.wave === 3 || game.wave % 5 === 0)) return ALIEN_VARIANT_BY_TYPE.boss;
-  if (index === 0 && game.wave === 1) return ALIEN_VARIANT_BY_TYPE.spitter;
-  if (index === 1 && game.wave === 1) return ALIEN_VARIANT_BY_TYPE.wasp;
-  if (index === 0 && game.wave === 2) return ALIEN_VARIANT_BY_TYPE.brute;
-  if (index === 1 && game.wave === 2) return ALIEN_VARIANT_BY_TYPE.wasp;
-  if (index === 2 && game.wave === 2) return ALIEN_VARIANT_BY_TYPE.spitter;
+  const waveInStage = (((game.wave || 1) - 1) % 3) + 1;
+  if (index === 0 && (waveInStage === 3 || (game.isEndless && game.wave % 5 === 0))) return ALIEN_VARIANT_BY_TYPE.boss;
+  if (index === 0 && waveInStage === 1) return ALIEN_VARIANT_BY_TYPE.spitter;
+  if (index === 1 && waveInStage === 1) return ALIEN_VARIANT_BY_TYPE.wasp;
+  if (index === 0 && waveInStage === 2) return ALIEN_VARIANT_BY_TYPE.brute;
+  if (index === 1 && waveInStage === 2) return ALIEN_VARIANT_BY_TYPE.wasp;
+  if (index === 2 && waveInStage === 2) return ALIEN_VARIANT_BY_TYPE.spitter;
   return null;
 }
 
@@ -342,7 +476,7 @@ function getAlienMixLabel(difficulty) {
 }
 
 export function clearAliens(game, context = null) {
-  for (const alien of game.aliens) {
+  for (const alien of (game.aliens || [])) {
     if (alien) {
       disposeAlienTapetumEyes(alien);
       alien.getChildMeshes().forEach(m => m.dispose());
@@ -350,6 +484,14 @@ export function clearAliens(game, context = null) {
     }
   }
   game.aliens = [];
+
+  for (const deadNode of dyingAlienNodes) {
+    try {
+      deadNode.getChildMeshes().forEach(m => m.dispose());
+      deadNode.dispose();
+    } catch (e) {}
+  }
+  dyingAlienNodes.clear();
 
   if (context?.shadowGenerator?.getShadowMap()) {
     const renderList = context.shadowGenerator.getShadowMap().renderList;
@@ -376,11 +518,6 @@ export function damageAlien(context, alien, amount, source = "player") {
   alien.flinchAmount = 1.0;
   alien.flinchDir = (Math.random() - 0.5) * 0.4;
   if (source === "player") alien.playerTagged = true;
-  if (source === "defense" && !alien.playerTagged) {
-    alien.health = Math.max(1, alien.health - amount);
-    updateAlienHealthBar(alien);
-    return;
-  }
   alien.health -= amount;
   updateAlienHealthBar(alien);
 
@@ -478,7 +615,19 @@ export function killAlien(context, alien, source = "player") {
   createAlienExplosion(scene, alien, materials.alien, game.effectsScale);
   playSpatialSound("alien_death", alien.position, context.camera);
   playSpatialSound("alien_splatter", alien.position, context.camera);
-  if (alien.variant === "boss") stopBossMusic();
+  if (alien.variant === "boss") {
+    stopBossMusic();
+    (game.aliens || []).forEach(pod => {
+      if (pod && pod.variant === "pod" && !pod.dead) {
+        pod.dead = true;
+        try {
+          createImpactEffect(scene, pod.position);
+          pod.getChildMeshes().forEach(m => m.dispose());
+          pod.dispose();
+        } catch (e) {}
+      }
+    });
+  }
 
   // Phase 1: Bio-Gibs & Decapitation Chunks
   const impactDir = context.camera?.getForwardRay ? context.camera.getForwardRay(1).direction : null;
@@ -501,13 +650,16 @@ export function killAlien(context, alien, source = "player") {
   setAlienHealthBarVisible(alien, false);
   alien.getChildMeshes().forEach(m => m.isPickable = false);
 
+  const isLastCombatAlien = game.aliens.filter(a => a.variant !== "pod").length === 0;
   const model = alien.modelRoot;
-  if (model) {
+  if (model && !isLastCombatAlien) {
+    dyingAlienNodes.add(alien);
     const startTime = performance.now();
     const animObserver = scene.onBeforeRenderObservable.add(() => {
       const elapsed = performance.now() - startTime;
       if (elapsed > 400 || alien.isDisposed()) {
         scene.onBeforeRenderObservable.remove(animObserver);
+        dyingAlienNodes.delete(alien);
         alien.getChildMeshes().forEach(m => m.dispose());
         alien.dispose();
         return;
@@ -524,47 +676,109 @@ export function killAlien(context, alien, source = "player") {
       }
     });
   } else {
+    dyingAlienNodes.delete(alien);
     alien.getChildMeshes().forEach(m => m.dispose());
     alien.dispose();
   }
 
-  if (game.aliens.length === 0 && game.started && !game.gameOver) {
-    setMusicState("ambient");
-    playSound("wave_clear");
-    broadcastRadioComms("Sector secured. Good shooting, Defender. Repairing shields.");
-    updateMissionProgress(context, "waves", 1);
+  checkWaveCompletion(context, source);
+  updateUI(ui, game);
+}
 
-    if (game.baseHealth >= game.maxBaseHealth) {
-      triggerAchievement(context, "iron_core");
+export function checkWaveCompletion(context, source = "player") {
+  const { game } = context;
+  if (!game.started || game.gameOver || game.waveStarting) return;
+  if (!game.waveCombatActive) return;
+
+  // Filter out any dead or disposed entities
+  game.aliens = (game.aliens || []).filter(a => a && !a.dead && !a.isDisposed());
+
+  // Count active combat aliens (exclude egg pods from blocking stage completion)
+  const combatAliens = game.aliens.filter(a => a.variant !== "pod");
+  if (combatAliens.length > 0) return;
+
+  const totalWaveKills = (game.wavePlayerKills || 0) + (game.waveDefenseKills || 0);
+  const targetKills = game.activeWaveAlienCount || 1;
+
+  // If combat aliens is 0 but confirmed kills are fewer than spawned enemies (e.g. glitch/clipping),
+  // respawn missing aliens so player actually fights and kills every enemy
+  if (totalWaveKills < targetKills) {
+    const missing = targetKills - totalWaveKills;
+    const difficulty = getWaveDifficulty(game);
+    for (let i = 0; i < missing; i++) {
+      try {
+        const pos = getSpawnPosition(game, difficulty, i);
+        const variant = getForcedWaveVariant(game, difficulty, i) || pickWaveVariant(context, difficulty, i);
+        createAlien(context, pos, difficulty, variant);
+      } catch (e) {}
     }
+    return;
+  }
 
-    const clearedByDefense = game.waveDefenseKills > 0 && source === "defense";
-    const waveClearMessage = clearedByDefense
-      ? `Wave secured! Your towers finished the last alien. You killed ${game.wavePlayerKills}; defenses killed ${game.waveDefenseKills}.`
-      : `Wave cleared! You eliminated all aliens. Rifle kills this wave: ${game.wavePlayerKills}.`;
+  triggerWaveClear(context, source);
+}
 
-    if (game.isEndless) {
-      game.endlessHighScore = Math.max(game.endlessHighScore || 0, game.wave);
-      game.wave++;
-      game.waveStarting = true;
-      game.health = Math.min(100, game.health + 15);
-      game.baseHealth = Math.min(game.maxBaseHealth, game.baseHealth + 12 + (game.shieldRegenBonus || 0));
-      game.ammo = game.maxAmmo;
-      ui.message.textContent = `ENDLESS WAVE ${game.wave - 1} CLEARED! High Score: Wave ${game.endlessHighScore}`;
-      showRewardChoices(context);
+export function triggerWaveClear(context, source = "player") {
+  const { game, ui, scene } = context;
+  if (!game.started || game.gameOver || game.waveStarting) return;
+  game.waveCombatActive = false;
+  game.waveStarting = true;
+
+  // Clean up any remaining non-combat entities / pods
+  for (const extra of (game.aliens || [])) {
+    if (extra && !extra.isDisposed()) {
+      try {
+        if (extra.variant === "pod") createImpactEffect(scene, extra.position);
+        extra.getChildMeshes().forEach(m => m.dispose());
+        extra.dispose();
+      } catch (e) {}
+    }
+  }
+  game.aliens = [];
+
+  for (const deadNode of dyingAlienNodes) {
+    try {
+      deadNode.getChildMeshes().forEach(m => m.dispose());
+      deadNode.dispose();
+    } catch (e) {}
+  }
+  dyingAlienNodes.clear();
+
+  setMusicState("ambient");
+  stopBossMusic();
+  playSound("wave_clear");
+  broadcastRadioComms("Sector secured. Good shooting, Defender. Repairing shields.");
+  updateMissionProgress(context, "waves", 1);
+
+  if (game.baseHealth >= game.maxBaseHealth) {
+    triggerAchievement(context, "iron_core");
+  }
+
+  const totalWaveAliens = (game.wavePlayerKills || 0) + (game.waveDefenseKills || 0);
+  const clearedByDefense = game.waveDefenseKills > 0 && source === "defense";
+  const waveClearMessage = clearedByDefense
+    ? `Wave secured! All ${totalWaveAliens} aliens eliminated (${game.wavePlayerKills} rifle, ${game.waveDefenseKills} sentry).`
+    : `Wave cleared! All ${totalWaveAliens} aliens eliminated!`;
+
+  if (game.isEndless) {
+    game.endlessHighScore = Math.max(game.endlessHighScore || 0, game.wave);
+    game.wave++;
+    game.health = Math.min(100, game.health + 15);
+    game.baseHealth = Math.min(game.maxBaseHealth, game.baseHealth + 12 + (game.shieldRegenBonus || 0));
+    game.ammo = game.maxAmmo;
+    ui.message.textContent = `ENDLESS WAVE ${game.wave - 1} CLEARED! High Score: Wave ${game.endlessHighScore}`;
+    showRewardChoices(context);
+  } else {
+    const isStageFinalWave = (game.wave % 3 === 0);
+    game.wave++;
+    game.health = Math.min(100, game.health + 15);
+    game.baseHealth = Math.min(game.maxBaseHealth, game.baseHealth + 12 + (game.shieldRegenBonus || 0));
+    game.ammo = game.maxAmmo;
+    ui.message.textContent = `${waveClearMessage} Base shield regenerated.`;
+    if (isStageFinalWave) {
+      showStageClearModal(context);
     } else {
-      const isStageFinalWave = (game.wave % 3 === 0);
-      game.wave++;
-      game.waveStarting = true;
-      game.health = Math.min(100, game.health + 15);
-      game.baseHealth = Math.min(game.maxBaseHealth, game.baseHealth + 12 + (game.shieldRegenBonus || 0));
-      game.ammo = game.maxAmmo;
-      ui.message.textContent = `${waveClearMessage} Base shield regenerated.`;
-      if (isStageFinalWave) {
-        showStageClearModal(context);
-      } else {
-        showRewardChoices(context);
-      }
+      showRewardChoices(context);
     }
   }
 
@@ -831,6 +1045,28 @@ export function updateAliens(context) {
   updateAlienProjectiles(context, delta);
   updateTapetumLucidumGlow(context);
 
+  // Sanitize alien list and clamp arena boundaries (prevent out-of-bounds despawning)
+  game.aliens = (game.aliens || []).filter(alien => {
+    if (!alien || alien.dead || alien.isDisposed()) return false;
+    const distSq = alien.position.x * alien.position.x + alien.position.z * alien.position.z;
+    if (alien.position.y < -3 || distSq > 1600) {
+      const angle = Math.atan2(alien.position.z, alien.position.x) || (Math.random() * Math.PI * 2);
+      alien.position.x = Math.cos(angle) * 22;
+      alien.position.y = (alien.variant === "wasp" || alien.isFlying) ? 3.0 : 0;
+      alien.position.z = Math.sin(angle) * 22;
+    }
+    return true;
+  });
+
+  // Guarantee stage/wave clear ONLY when combat is active and all combat enemies are confirmed eliminated
+  if (game.started && !game.gameOver && !game.waveStarting && game.waveCombatActive) {
+    const activeRemaining = (game.aliens || []).filter(a => a && !a.dead && !a.isDisposed() && a.variant !== "pod").length;
+    if (activeRemaining === 0) {
+      checkWaveCompletion(context);
+      return;
+    }
+  }
+
   for (const alien of [...game.aliens]) {
     if (!alien || alien.dead) continue;
 
@@ -1050,6 +1286,12 @@ export function updateAliens(context) {
       damageBase(context, alien.damage || 2);
     }
 
+    if (isMoving) {
+      playAlienAnimation(alien, "walk", true);
+    } else {
+      playAlienAnimation(alien, "idle", true);
+    }
+
     updateAlienProceduralAnimation(alien, delta, isMoving);
   }
 }
@@ -1062,8 +1304,20 @@ function updateAlienProceduralAnimation(alien, delta, isMoving) {
   const time = performance.now() * 0.001;
 
   alien.animBreathPhase = (alien.animBreathPhase || 0) + dtSec * 2.2;
+  alien.walkBlend = BABYLON.Scalar.Lerp(alien.walkBlend || 0, isMoving ? 1.0 : 0.0, dtSec * 7.5);
+
   if (isMoving) {
-    const walkSpeedFactor = alien.variant === "wasp" ? 4.8 : alien.variant === "spitter" ? 6.4 : 4.2;
+    const walkSpeedFactor = alien.variant === "wasp"
+      ? 5.2
+      : alien.variant === "runner"
+        ? 10.8
+        : alien.variant === "spitter"
+          ? 5.6
+          : alien.variant === "brute"
+            ? 3.6
+            : alien.variant === "boss"
+              ? 2.6
+              : 6.2;
     alien.animWalkPhase = (alien.animWalkPhase || 0) + dtSec * walkSpeedFactor * (alien.speed || 1);
   }
 
@@ -1088,83 +1342,194 @@ function updateAlienProceduralAnimation(alien, delta, isMoving) {
   let scaleZ = alien.baseScale.z;
 
   const isBoss = alien.variant === "boss";
+  const walkPhase = alien.animWalkPhase || 0;
+  const walkBlend = alien.walkBlend || 0;
 
   if (alien.variant === "wasp" || alien.isFlying) {
     // 1. High-frequency 60Hz wing-beat micro-vibration
-    const wingVibe = Math.sin(time * 38) * 0.055;
+    const wingVibe = Math.sin(time * 46) * 0.065;
     rotZ += wingVibe;
-    rotX += Math.cos(time * 34) * 0.035;
+    rotX += Math.cos(time * 40) * 0.04;
 
     // 2. Aerial hovering fluid bobbing
-    const hoverBob = Math.sin(time * 4.2 + (alien.flightPhase || 0)) * 0.18;
+    const hoverBob = Math.sin(time * 4.5 + (alien.flightPhase || 0)) * 0.22;
     posY += hoverBob;
 
-    if (isMoving) {
-      rotX += 0.22;
-      rotZ += Math.sin((alien.animWalkPhase || 0) * 0.7) * 0.16;
+    if (walkBlend > 0.01) {
+      rotX += 0.26 * walkBlend;
+      rotZ += Math.sin(walkPhase * 0.8) * 0.20 * walkBlend;
     }
 
     // 3. Attack thrust (stinger snap)
     if (alien.attackAnimTimer > 0) {
       const attackProgress = Math.sin(alien.attackAnimTimer * Math.PI);
-      posZ += attackProgress * 0.35;
+      posZ += attackProgress * 0.42;
+      rotX += attackProgress * 0.38;
+    }
+  } else if (alien.variant === "runner") {
+    // Fast Insectoid Sprint / Skitter Animation
+    if (walkBlend > 0.01) {
+      const stepBounce = Math.sin(walkPhase * 2);
+      posY += Math.abs(stepBounce) * 0.16 * walkBlend;
+      // Aggressive forward predatory crouch
+      rotX += (0.28 + Math.cos(walkPhase * 2) * 0.08) * walkBlend;
+      // Rapid scurrying lateral wobble
+      rotZ += Math.sin(walkPhase) * 0.18 * walkBlend;
+      // Pelvis yaw swivel into stride
+      rotY += Math.cos(walkPhase) * 0.15 * walkBlend;
+      // Squash on impact, stretch at apex
+      scaleY *= 1.0 - Math.abs(stepBounce) * 0.08 * walkBlend;
+      scaleX *= 1.0 + Math.abs(stepBounce) * 0.06 * walkBlend;
+    }
+
+    // Idle predatory twitching
+    if (walkBlend < 0.99) {
+      const idleWeight = 1.0 - walkBlend;
+      const breath = Math.sin(alien.animBreathPhase * 3.2) * 0.035 * idleWeight;
+      scaleX *= 1.0 + breath;
+      scaleY *= 1.0 - breath;
+      rotX += (0.10 + Math.sin(alien.animBreathPhase * 1.8) * 0.04) * idleWeight;
+      rotY += Math.sin(alien.animBreathPhase * 0.8) * 0.06 * idleWeight;
+    }
+
+    if (alien.attackAnimTimer > 0) {
+      const attackProgress = Math.sin(alien.attackAnimTimer * Math.PI);
+      posZ += attackProgress * 0.45;
       rotX += attackProgress * 0.32;
     }
   } else if (alien.variant === "spitter") {
-    if (isMoving) {
-      // Serpentine stride: yaw undulation & lateral sway
-      rotY += Math.sin(alien.animWalkPhase) * 0.15;
-      rotZ += Math.cos(alien.animWalkPhase) * 0.08;
-      // Rhythmic step heave
-      const stepHeave = Math.sin(alien.animWalkPhase * 2) * 0.09;
-      posY += Math.abs(stepHeave);
-      rotX += stepHeave * 0.6;
+    // Serpentine Stalk Animation
+    if (walkBlend > 0.01) {
+      // Sinuous yaw undulation & lateral sway
+      rotY += Math.sin(walkPhase) * 0.22 * walkBlend;
+      rotZ += Math.cos(walkPhase) * 0.14 * walkBlend;
+      // Step heave
+      const stepHeave = Math.sin(walkPhase * 2) * 0.12;
+      posY += Math.abs(stepHeave) * walkBlend;
+      rotX += (stepHeave * 0.7 + 0.12) * walkBlend;
+      posZ += Math.sin(walkPhase) * 0.12 * walkBlend;
 
-      scaleZ *= 1.0 + Math.sin(alien.animWalkPhase * 2) * 0.05;
-      scaleY *= 1.0 - Math.sin(alien.animWalkPhase * 2) * 0.04;
-    } else {
-      // Idle breathing
-      const breath = Math.sin(alien.animBreathPhase * 1.8) * 0.04;
+      scaleZ *= 1.0 + Math.sin(walkPhase * 2) * 0.06 * walkBlend;
+      scaleY *= 1.0 - Math.sin(walkPhase * 2) * 0.05 * walkBlend;
+    }
+
+    if (walkBlend < 0.99) {
+      const idleWeight = 1.0 - walkBlend;
+      const breath = Math.sin(alien.animBreathPhase * 1.8) * 0.04 * idleWeight;
       scaleX *= 1.0 + breath;
       scaleY *= 1.0 - breath * 0.8;
       scaleZ *= 1.0 + breath * 0.5;
-      rotY += Math.sin(alien.animBreathPhase * 0.9) * 0.06;
+      rotY += Math.sin(alien.animBreathPhase * 0.9) * 0.06 * idleWeight;
     }
 
     // Mortar launch recoil & lunging
     if (alien.attackAnimTimer > 0) {
       const attackProgress = Math.sin(alien.attackAnimTimer * Math.PI);
-      rotX += attackProgress * -0.38;
-      posZ += attackProgress * 0.25;
-      posY += attackProgress * 0.18;
+      rotX += attackProgress * -0.42;
+      posZ += attackProgress * 0.28;
+      posY += attackProgress * 0.20;
     }
-  } else {
-    // Goliath Heavy Titan & Boss
-    if (isMoving) {
-      const stompFactor = isBoss ? 1.4 : 1.0;
-      const step = Math.abs(Math.sin(alien.animWalkPhase * 1.6));
-      posY += step * 0.18 * stompFactor;
-      rotZ += Math.sin(alien.animWalkPhase * 1.6) * 0.11 * stompFactor;
-      rotX += (0.08 + Math.sin(alien.animWalkPhase * 3.2) * 0.05) * stompFactor;
+  } else if (alien.variant === "brute") {
+    // Armored Juggernaut Heavy Stride
+    if (walkBlend > 0.01) {
+      const stompCycle = walkPhase * 1.3;
+      const footPlant = Math.sin(stompCycle * 2);
+      posY += Math.abs(footPlant) * 0.22 * walkBlend;
+      // Heavy lateral weight shift between shoulder plates
+      rotZ += Math.sin(stompCycle) * 0.17 * walkBlend;
+      // Heavy forward battering-ram tilt
+      rotX += (0.18 + Math.cos(stompCycle * 2) * 0.07) * walkBlend;
+      rotY += Math.cos(stompCycle) * 0.09 * walkBlend;
 
-      scaleY *= 1.0 - step * 0.06;
-      scaleX *= 1.0 + step * 0.04;
-    } else {
-      // Idle heavy breathing
-      const breath = Math.sin(alien.animBreathPhase * 1.2) * 0.05;
+      scaleY *= 1.0 - Math.abs(footPlant) * 0.09 * walkBlend;
+      scaleX *= 1.0 + Math.abs(footPlant) * 0.07 * walkBlend;
+    }
+
+    if (walkBlend < 0.99) {
+      const idleWeight = 1.0 - walkBlend;
+      const breath = Math.sin(alien.animBreathPhase * 1.1) * 0.05 * idleWeight;
       scaleX *= 1.0 + breath;
       scaleZ *= 1.0 + breath * 0.8;
-      scaleY *= 1.0 - breath * 0.4;
-      rotX += Math.sin(alien.animBreathPhase * 0.6) * 0.03;
+      scaleY *= 1.0 - breath * 0.5;
+      rotX += Math.sin(alien.animBreathPhase * 0.5) * 0.03 * idleWeight;
     }
 
-    // Ground slam / barrage windup & slam
     if (alien.attackAnimTimer > 0) {
       const attackProgress = Math.sin(alien.attackAnimTimer * Math.PI);
-      rotX += attackProgress * (alien.attackAnimTimer > 0.5 ? -0.35 : 0.38);
-      posY += attackProgress * (alien.attackAnimTimer > 0.5 ? 0.35 : -0.15);
+      rotX += attackProgress * 0.40;
+      posZ += attackProgress * 0.35;
       scaleY *= 1.0 + attackProgress * 0.12;
     }
+  } else if (isBoss) {
+    // Goliath Colossus Titan Stride
+    if (walkBlend > 0.01) {
+      const bossCycle = walkPhase * 1.1;
+      const step = Math.sin(bossCycle * 2);
+      posY += Math.abs(step) * 0.32 * walkBlend;
+      rotZ += Math.sin(bossCycle) * 0.19 * walkBlend;
+      rotX += (0.16 + Math.cos(bossCycle * 2) * 0.08) * walkBlend;
+      rotY += Math.cos(bossCycle) * 0.12 * walkBlend;
+
+      scaleY *= 1.0 - Math.abs(step) * 0.12 * walkBlend;
+      scaleX *= 1.0 + Math.abs(step) * 0.09 * walkBlend;
+    }
+
+    if (walkBlend < 0.99) {
+      const idleWeight = 1.0 - walkBlend;
+      const breath = Math.sin(alien.animBreathPhase * 0.9) * 0.06 * idleWeight;
+      scaleX *= 1.0 + breath;
+      scaleZ *= 1.0 + breath;
+      scaleY *= 1.0 - breath * 0.6;
+      rotX += Math.sin(alien.animBreathPhase * 0.4) * 0.05 * idleWeight;
+    }
+
+    if (alien.attackAnimTimer > 0) {
+      const attackProgress = Math.sin(alien.attackAnimTimer * Math.PI);
+      rotX += attackProgress * (alien.attackAnimTimer > 0.5 ? -0.38 : 0.42);
+      posY += attackProgress * (alien.attackAnimTimer > 0.5 ? 0.38 : -0.18);
+      scaleY *= 1.0 + attackProgress * 0.15;
+    }
+  } else {
+    // Classic Grunt Bipedal Walk Cycle
+    if (walkBlend > 0.01) {
+      const step = Math.sin(walkPhase * 2);
+      posY += Math.abs(step) * 0.16 * walkBlend;
+      // Alternating shoulder dip and roll toward supporting foot
+      rotZ += Math.sin(walkPhase) * 0.14 * walkBlend;
+      // Determined forward march lean
+      rotX += (0.13 + Math.cos(walkPhase * 2) * 0.06) * walkBlend;
+      rotY += Math.cos(walkPhase) * 0.10 * walkBlend;
+
+      scaleY *= 1.0 - Math.abs(step) * 0.07 * walkBlend;
+      scaleX *= 1.0 + Math.abs(step) * 0.05 * walkBlend;
+    }
+
+    if (walkBlend < 0.99) {
+      const idleWeight = 1.0 - walkBlend;
+      const breath = Math.sin(alien.animBreathPhase * 1.6) * 0.04 * idleWeight;
+      scaleX *= 1.0 + breath;
+      scaleY *= 1.0 - breath * 0.7;
+      rotX += Math.sin(alien.animBreathPhase * 0.8) * 0.03 * idleWeight;
+      rotY += Math.sin(alien.animBreathPhase * 0.4) * 0.05 * idleWeight;
+    }
+
+    if (alien.attackAnimTimer > 0) {
+      const attackProgress = Math.sin(alien.attackAnimTimer * Math.PI);
+      posZ += attackProgress * 0.32;
+      rotX += attackProgress * 0.28;
+    }
+  }
+
+  // Animate procedural fallback limbs if present
+  if (alien.leftLeg && alien.rightLeg) {
+    const legSwing = Math.sin(walkPhase) * 0.75 * walkBlend;
+    alien.leftLeg.rotation.x = legSwing;
+    alien.rightLeg.rotation.x = -legSwing;
+  }
+  if (alien.leftArm && alien.rightArm) {
+    const armSwing = Math.sin(walkPhase) * 0.65 * walkBlend;
+    alien.leftArm.rotation.x = -armSwing;
+    alien.rightArm.rotation.x = armSwing;
   }
 
   // Hit flinch recoil
@@ -1252,13 +1617,18 @@ function playAlienAnimation(alien, kind, loop) {
 }
 
 function findAnimationGroup(groups, kind) {
+  if (!groups || !groups.length) return null;
   const patterns = {
-    idle: ["idle", "breathing"],
-    run: ["run", "walk"],
-    dying: ["dying", "death"]
+    idle: ["idle", "breathing", "wait", "stand", "rest", "pose", "default"],
+    walk: ["walk", "run", "stride", "move", "crawl", "fly", "glide", "locomotion", "step", "take 001", "armature"],
+    run: ["run", "sprint", "fast", "walk"],
+    attack: ["attack", "strike", "bite", "slash", "shoot", "hit", "punch"],
+    dying: ["dying", "death", "die", "fall", "defeat"]
   }[kind];
 
-  return groups.find(group => patterns.some(pattern => group.name.toLowerCase().includes(pattern)));
+  if (!patterns) return groups[0] || null;
+  const match = groups.find(group => patterns.some(pattern => (group.name || "").toLowerCase().includes(pattern)));
+  return match || (kind === "walk" ? groups[0] : null);
 }
 
 const TAPETUM_CONFIGS = {
@@ -1554,8 +1924,9 @@ function createEggPod(context, position) {
   podMesh.position.y = 1.1;
 
   const podMat = new BABYLON.StandardMaterial(`EggPodMat_${Math.random()}`, scene);
-  podMat.diffuseColor = new BABYLON.Color3(0.15, 0.5, 0.1);
-  podMat.emissiveColor = new BABYLON.Color3(0.2, 0.85, 0.25);
+  podMat.diffuseColor = new BABYLON.Color3(0.22, 0.48, 0.25);
+  podMat.emissiveColor = new BABYLON.Color3(0.04, 0.12, 0.05);
+  podMat.specularColor = new BABYLON.Color3(0.3, 0.35, 0.3);
   podMat.specularPower = 32;
   podMesh.material = podMat;
 
@@ -1594,19 +1965,26 @@ function createEggPod(context, position) {
 }
 
 function hatchEggPod(context, pod) {
-  if (pod.dead || pod.isDisposed()) return;
+  if (!pod || pod.dead || pod.isDisposed()) return;
   const { game, scene } = context;
   pod.dead = true;
 
-  playSpatialSound("egg_pod_hatch", pod.position, context.camera, 1.3);
-  createAlienExplosion(scene, pod.position, new BABYLON.Color3(0.2, 0.9, 0.3));
+  try {
+    playSpatialSound("egg_pod_hatch", pod.position, context.camera, 1.3);
+    createImpactEffect(scene, pod.position, false, 1.2);
+    createAlienExplosion(scene, pod, new BABYLON.Color3(0.2, 0.9, 0.3));
 
-  for (let i = 0; i < 2; i++) {
-    const offset = new BABYLON.Vector3(i === 0 ? -1.5 : 1.5, 0, (Math.random() - 0.5) * 1.5);
-    createAlien(context, pod.position.add(offset), getWaveDifficulty(game), ALIEN_VARIANT_BY_TYPE.runner);
+    for (let i = 0; i < 2; i++) {
+      const offset = new BABYLON.Vector3(i === 0 ? -1.5 : 1.5, 0, (Math.random() - 0.5) * 1.5);
+      createAlien(context, pod.position.add(offset), getWaveDifficulty(game), ALIEN_VARIANT_BY_TYPE.runner);
+    }
+  } catch (err) {
+    console.warn("hatchEggPod error:", err);
+  } finally {
+    game.aliens = (game.aliens || []).filter(a => a !== pod);
+    try {
+      pod.getChildMeshes().forEach(m => m.dispose());
+      pod.dispose();
+    } catch (e) {}
   }
-
-  game.aliens = game.aliens.filter(a => a !== pod);
-  pod.getChildMeshes().forEach(m => m.dispose());
-  pod.dispose();
 }

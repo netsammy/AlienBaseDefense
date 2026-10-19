@@ -59,9 +59,8 @@ let defensePadMeshes = [];
 export function createStarterTowers(context) {
   clearTowers(context);
   createDefensePads(context);
-  // Deploy starter turrets at North (Gatling) and South (Cryo)
+  // Deploy 1 starter support turret at North (Gatling) so player participates in combat
   deployTurretOnPad(context, "pad_0", "gatling", true);
-  deployTurretOnPad(context, "pad_3", "cryo", true);
 }
 
 export function clearTowers(context) {
@@ -69,6 +68,8 @@ export function clearTowers(context) {
   if (game?.towers) {
     game.towers.forEach(tower => {
       tower.meshes?.forEach(mesh => mesh.dispose());
+      tower.turretRoot?.dispose();
+      tower.swivelRoot?.dispose();
       tower.model?.dispose();
       tower.overdriveAura?.dispose();
       tower.laserLine?.dispose();
@@ -144,23 +145,260 @@ export function deployTurretOnPad(context, padId, type = "gatling", free = false
     updateMissionProgress(context, "towers", 1);
   }
 
-  const baseMat = new BABYLON.StandardMaterial(`TowerMat_${type}_${Math.random()}`, scene);
-  baseMat.diffuseColor = cfg.color;
-  baseMat.emissiveColor = cfg.color.scale(0.28);
+function createFuturisticTurretModel(scene, pad, cfg, type) {
+  const turretRoot = new BABYLON.TransformNode(`TurretProcRoot_${type}_${pad.id}`, scene);
+  turretRoot.position = pad.position.clone();
+
+  const meshes = [];
+
+  // 1. Armored Octagonal Pedestal Base
+  const pedestalMat = new BABYLON.StandardMaterial(`PedestalMat_${type}_${pad.id}`, scene);
+  pedestalMat.diffuseColor = new BABYLON.Color3(0.12, 0.15, 0.18);
+  pedestalMat.specularColor = new BABYLON.Color3(0.35, 0.4, 0.45);
+  pedestalMat.emissiveColor = new BABYLON.Color3(0.04, 0.05, 0.06);
+
+  const trimMat = new BABYLON.StandardMaterial(`TrimMat_${type}_${pad.id}`, scene);
+  trimMat.diffuseColor = cfg.color;
+  trimMat.emissiveColor = cfg.color.scale(0.45);
+
+  const pedestal = BABYLON.MeshBuilder.CreateCylinder(`TurretPedestal_${pad.id}`, {
+    diameter: 1.6,
+    height: 0.35,
+    tessellation: 16
+  }, scene);
+  pedestal.parent = turretRoot;
+  pedestal.position.y = 0.175;
+  pedestal.material = pedestalMat;
+  meshes.push(pedestal);
+
+  const baseRing = BABYLON.MeshBuilder.CreateTorus(`TurretBaseRing_${pad.id}`, {
+    diameter: 1.5,
+    thickness: 0.04,
+    tessellation: 24
+  }, scene);
+  baseRing.parent = turretRoot;
+  baseRing.position.y = 0.35;
+  baseRing.material = trimMat;
+  meshes.push(baseRing);
+
+  // Hydraulic Swivel Neck
+  const neck = BABYLON.MeshBuilder.CreateCylinder(`TurretNeck_${pad.id}`, {
+    diameter: 0.65,
+    height: 0.45,
+    tessellation: 16
+  }, scene);
+  neck.parent = turretRoot;
+  neck.position.y = 0.55;
+  neck.material = pedestalMat;
+  meshes.push(neck);
+
+  // 2. Swivel Head (Tracks target alien)
+  const swivelRoot = new BABYLON.TransformNode(`TurretSwivel_${pad.id}`, scene);
+  swivelRoot.parent = turretRoot;
+  swivelRoot.position.y = 0.85;
+
+  // Main Armored Chassis
+  const chassisMat = new BABYLON.StandardMaterial(`ChassisMat_${type}_${pad.id}`, scene);
+  chassisMat.diffuseColor = new BABYLON.Color3(0.16, 0.20, 0.24);
+  chassisMat.specularColor = new BABYLON.Color3(0.5, 0.55, 0.6);
+  chassisMat.emissiveColor = new BABYLON.Color3(0.03, 0.04, 0.05);
+
+  const chassis = BABYLON.MeshBuilder.CreateBox(`TurretChassis_${pad.id}`, {
+    width: 0.85,
+    height: 0.62,
+    depth: 1.15
+  }, scene);
+  chassis.parent = swivelRoot;
+  chassis.position.set(0, 0.15, 0);
+  chassis.material = chassisMat;
+  meshes.push(chassis);
+
+  // Angled Side Armor Plates
+  for (const side of [-1, 1]) {
+    const armorPlate = BABYLON.MeshBuilder.CreateBox(`TurretArmorPlate_${side}_${pad.id}`, {
+      width: 0.08,
+      height: 0.5,
+      depth: 0.95
+    }, scene);
+    armorPlate.parent = swivelRoot;
+    armorPlate.position.set(side * 0.48, 0.15, -0.05);
+    armorPlate.rotation.z = side * 0.12;
+    armorPlate.material = pedestalMat;
+    meshes.push(armorPlate);
+  }
+
+  // Rear Glowing Reactor / Capacitor Cell
+  const glowMat = new BABYLON.StandardMaterial(`GlowMat_${type}_${pad.id}`, scene);
+  glowMat.diffuseColor = cfg.color;
+  glowMat.emissiveColor = cfg.color.scale(0.85);
+
+  const reactorCore = BABYLON.MeshBuilder.CreateCylinder(`TurretReactor_${pad.id}`, {
+    diameter: 0.44,
+    height: 0.52,
+    tessellation: 16
+  }, scene);
+  reactorCore.parent = swivelRoot;
+  reactorCore.position.set(0, 0.16, -0.6);
+  reactorCore.rotation.x = Math.PI / 2;
+  reactorCore.material = glowMat;
+  meshes.push(reactorCore);
+
+  // Top Optics / Targeting Dome
+  const opticsDome = BABYLON.MeshBuilder.CreateSphere(`TurretOptics_${pad.id}`, {
+    diameter: 0.34
+  }, scene);
+  opticsDome.parent = swivelRoot;
+  opticsDome.position.set(0, 0.54, 0.15);
+  opticsDome.material = pedestalMat;
+  meshes.push(opticsDome);
+
+  const opticsLens = BABYLON.MeshBuilder.CreateCylinder(`TurretOpticsLens_${pad.id}`, {
+    diameter: 0.14,
+    height: 0.06,
+    tessellation: 12
+  }, scene);
+  opticsLens.parent = swivelRoot;
+  opticsLens.position.set(0, 0.54, 0.32);
+  opticsLens.rotation.x = Math.PI / 2;
+  const lensMat = new BABYLON.StandardMaterial(`LensMat_${pad.id}`, scene);
+  lensMat.emissiveColor = new BABYLON.Color3(0.0, 1.0, 0.6);
+  opticsLens.material = lensMat;
+  meshes.push(opticsLens);
+
+  // 3. Futuristic Weapon Barrels by Type
+  const barrelMat = new BABYLON.StandardMaterial(`BarrelMat_${type}_${pad.id}`, scene);
+  barrelMat.diffuseColor = new BABYLON.Color3(0.1, 0.12, 0.14);
+  barrelMat.specularColor = new BABYLON.Color3(0.8, 0.85, 0.9);
+
+  let primaryBarrel = null;
+
+  if (type === "cryo") {
+    // Cryo Freeze Sentry: Dual emitter rails with glowing cryo condenser coils
+    for (const side of [-1, 1]) {
+      const rail = BABYLON.MeshBuilder.CreateCylinder(`CryoRail_${side}_${pad.id}`, {
+        diameter: 0.11,
+        height: 1.6,
+        tessellation: 12
+      }, scene);
+      rail.parent = swivelRoot;
+      rail.position.set(side * 0.24, 0.15, 0.95);
+      rail.rotation.x = Math.PI / 2;
+      rail.material = barrelMat;
+      meshes.push(rail);
+      if (!primaryBarrel) primaryBarrel = rail;
+
+      for (const zOffset of [0.55, 0.95, 1.35]) {
+        const ring = BABYLON.MeshBuilder.CreateTorus(`CryoCoil_${side}_${zOffset}_${pad.id}`, {
+          diameter: 0.24,
+          thickness: 0.035,
+          tessellation: 16
+        }, scene);
+        ring.parent = swivelRoot;
+        ring.position.set(side * 0.24, 0.15, zOffset);
+        ring.rotation.x = Math.PI / 2;
+        ring.material = glowMat;
+        meshes.push(ring);
+      }
+    }
+    const frontFocalRing = BABYLON.MeshBuilder.CreateTorus(`CryoFocalRing_${pad.id}`, {
+      diameter: 0.68,
+      thickness: 0.04,
+      tessellation: 20
+    }, scene);
+    frontFocalRing.parent = swivelRoot;
+    frontFocalRing.position.set(0, 0.15, 1.7);
+    frontFocalRing.material = glowMat;
+    meshes.push(frontFocalRing);
+
+  } else if (type === "gatling") {
+    // Heavy Rotary Gatling Cluster
+    const rotorHub = BABYLON.MeshBuilder.CreateCylinder(`GatlingHub_${pad.id}`, {
+      diameter: 0.32,
+      height: 0.35,
+      tessellation: 16
+    }, scene);
+    rotorHub.parent = swivelRoot;
+    rotorHub.position.set(0, 0.15, 0.72);
+    rotorHub.rotation.x = Math.PI / 2;
+    rotorHub.material = pedestalMat;
+    meshes.push(rotorHub);
+
+    for (let b = 0; b < 4; b++) {
+      const bAngle = (b / 4) * Math.PI * 2;
+      const bx = Math.cos(bAngle) * 0.14;
+      const by = Math.sin(bAngle) * 0.14;
+      const bMesh = BABYLON.MeshBuilder.CreateCylinder(`GatlingBarrel_${b}_${pad.id}`, {
+        diameter: 0.08,
+        height: 1.6,
+        tessellation: 10
+      }, scene);
+      bMesh.parent = swivelRoot;
+      bMesh.position.set(bx, 0.15 + by, 1.25);
+      bMesh.rotation.x = Math.PI / 2;
+      bMesh.material = barrelMat;
+      meshes.push(bMesh);
+      if (!primaryBarrel) primaryBarrel = bMesh;
+    }
+
+    const muzzleRing = BABYLON.MeshBuilder.CreateTorus(`GatlingMuzzle_${pad.id}`, {
+      diameter: 0.42,
+      thickness: 0.038,
+      tessellation: 16
+    }, scene);
+    muzzleRing.parent = swivelRoot;
+    muzzleRing.position.set(0, 0.15, 2.05);
+    muzzleRing.rotation.x = Math.PI / 2;
+    muzzleRing.material = trimMat;
+    meshes.push(muzzleRing);
+
+  } else {
+    // Plasma Mortar Cannon: Heavy reinforced barrel with thermal shroud
+    const cannonBarrel = BABYLON.MeshBuilder.CreateCylinder(`MortarBarrel_${pad.id}`, {
+      diameter: 0.32,
+      height: 1.5,
+      tessellation: 16
+    }, scene);
+    cannonBarrel.parent = swivelRoot;
+    cannonBarrel.position.set(0, 0.15, 1.2);
+    cannonBarrel.rotation.x = Math.PI / 2;
+    cannonBarrel.material = barrelMat;
+    meshes.push(cannonBarrel);
+    primaryBarrel = cannonBarrel;
+
+    const cannonShroud = BABYLON.MeshBuilder.CreateCylinder(`MortarShroud_${pad.id}`, {
+      diameter: 0.46,
+      height: 0.75,
+      tessellation: 6
+    }, scene);
+    cannonShroud.parent = swivelRoot;
+    cannonShroud.position.set(0, 0.15, 0.95);
+    cannonShroud.rotation.x = Math.PI / 2;
+    cannonShroud.material = pedestalMat;
+    meshes.push(cannonShroud);
+
+    const muzzleBrake = BABYLON.MeshBuilder.CreateTorus(`MortarMuzzle_${pad.id}`, {
+      diameter: 0.52,
+      thickness: 0.05,
+      tessellation: 16
+    }, scene);
+    muzzleBrake.parent = swivelRoot;
+    muzzleBrake.position.set(0, 0.15, 1.95);
+    muzzleBrake.rotation.x = Math.PI / 2;
+    muzzleBrake.material = glowMat;
+    meshes.push(muzzleBrake);
+  }
+
+  meshes.forEach(m => m.isPickable = false);
+
+  return { turretRoot, swivelRoot, meshes, glowMat, reactorCore, barrel: primaryBarrel };
+}
+
+  const procModel = createFuturisticTurretModel(scene, pad, cfg, type);
 
   const rangeMat = new BABYLON.StandardMaterial(`TowerRangeMat_${type}_${Math.random()}`, scene);
   rangeMat.diffuseColor = cfg.color;
   rangeMat.emissiveColor = cfg.color.scale(0.22);
   rangeMat.alpha = 0.16;
-
-  const base = BABYLON.MeshBuilder.CreateCylinder("DefenseTowerBase", { diameter: 1.3, height: 0.5, tessellation: 12 }, scene);
-  base.position = pad.position.add(new BABYLON.Vector3(0, 0.25, 0));
-  base.material = baseMat;
-
-  const barrel = BABYLON.MeshBuilder.CreateCylinder("DefenseTowerBarrel", { diameter: 0.18, height: 1.7, tessellation: 8 }, scene);
-  barrel.position = pad.position.add(new BABYLON.Vector3(0, 1.0, 0));
-  barrel.rotation.x = Math.PI / 2;
-  barrel.material = materials.gun;
 
   const rangeRing = BABYLON.MeshBuilder.CreateTorus("DefenseTowerRange", {
     diameter: cfg.range * 2,
@@ -198,8 +436,7 @@ export function deployTurretOnPad(context, padId, type = "gatling", free = false
     if (turretModel) {
       fitModelToHeight(turretModel, 2.2, 0);
       turretModel.position = pad.position.clone();
-      base.isVisible = false;
-      barrel.isVisible = false;
+      procModel.meshes.forEach(m => m.isVisible = false);
       if (context.shadowGenerator?.getShadowMap()) {
         const renderList = context.shadowGenerator.getShadowMap().renderList;
         if (renderList) {
@@ -209,13 +446,24 @@ export function deployTurretOnPad(context, padId, type = "gatling", free = false
     }
   }
 
+  if (!turretModel && context.shadowGenerator?.getShadowMap()) {
+    const renderList = context.shadowGenerator.getShadowMap().renderList;
+    if (renderList) {
+      procModel.meshes.forEach(m => renderList.push(m));
+    }
+  }
+
   const tower = {
     padId,
     type,
     tier: 1,
     position: pad.position.clone(),
-    meshes: [base, barrel, rangeRing],
-    barrel,
+    meshes: [...procModel.meshes, rangeRing],
+    barrel: procModel.barrel,
+    turretRoot: procModel.turretRoot,
+    swivelRoot: procModel.swivelRoot,
+    glowMat: procModel.glowMat,
+    reactorCore: procModel.reactorCore,
     model: turretModel,
     rangeRing,
     overdriveAura: aura,
@@ -257,10 +505,16 @@ export function upgradeTurret(context, tower) {
     tower.damage *= 1.5;
     tower.range *= 1.2;
     tower.maxCooldown *= 0.82;
+    if (tower.glowMat) {
+      tower.glowMat.emissiveColor = tower.glowMat.emissiveColor.scale(1.4);
+    }
   } else if (tower.tier === 3) {
     tower.damage *= 1.4;
     tower.range *= 1.2;
     tower.maxCooldown *= 0.75;
+    if (tower.glowMat) {
+      tower.glowMat.emissiveColor = tower.glowMat.emissiveColor.scale(1.6);
+    }
   }
 
   if (tower.rangeRing) {
@@ -415,6 +669,8 @@ export function updateTowers(context) {
 
     if (tower.model) {
       tower.model.lookAt(targetPos);
+    } else if (tower.swivelRoot) {
+      tower.swivelRoot.lookAt(targetPos);
     } else if (tower.barrel) {
       tower.barrel.lookAt(targetPos);
     }

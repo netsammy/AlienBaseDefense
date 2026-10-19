@@ -80,3 +80,9 @@ Equip your plasma rifle, calibrate your turrets, and hold the perimeter! Downloa
 
 ## Privacy Policy URL
 https://netsammy.github.io/AlienBaseDefense/privacy.html
+
+---
+
+## Official Promo Video (YouTube URL)
+https://www.youtube.com/watch?v=8Ub1xUpbR30
+(Short link: https://youtu.be/8Ub1xUpbR30)

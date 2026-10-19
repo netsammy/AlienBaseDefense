@@ -175,41 +175,49 @@ function withTimeout(promise, timeoutMs) {
 }
 
 export function cloneLoadedAsset(asset, name, options = {}) {
-  if (asset?.container) {
-    const entries = asset.container.instantiateModelsToScene(sourceName => `${name}_${sourceName}`, false);
-    const root = new BABYLON.TransformNode(name, asset.root.getScene());
-    entries.rootNodes.forEach(node => {
-      node.parent = root;
-      setNodeTreeEnabled(node, true);
-    });
+  try {
+    if (asset?.container) {
+      const entries = asset.container.instantiateModelsToScene(sourceName => `${name}_${sourceName}`, false);
+      const scene = asset.root?.getScene?.() || (entries.rootNodes && entries.rootNodes[0]?.getScene?.());
+      if (!scene) return null;
+      const root = new BABYLON.TransformNode(name, scene);
+      entries.rootNodes.forEach(node => {
+        node.parent = root;
+        setNodeTreeEnabled(node, true);
+      });
 
-    root.setEnabled(true);
-    root.getChildMeshes(false).forEach(mesh => {
+      root.setEnabled(true);
+      root.getChildMeshes(false).forEach(mesh => {
+        mesh.setEnabled(true);
+        mesh.isPickable = options.isPickable ?? true;
+        if (options.metadata) mesh.metadata = { ...options.metadata };
+      });
+
+      applyCloneOptions(root, options);
+      root.animationGroups = entries.animationGroups || [];
+      return root;
+    }
+
+    const assetRoot = getAssetRoot(asset);
+    if (!assetRoot) return null;
+
+    const clone = assetRoot.clone(name, null, false);
+    if (!clone) return null;
+
+    clone.setEnabled(true);
+    clone.getChildMeshes(false).forEach(mesh => {
       mesh.setEnabled(true);
       mesh.isPickable = options.isPickable ?? true;
       if (options.metadata) mesh.metadata = { ...options.metadata };
     });
 
-    applyCloneOptions(root, options);
-    return root;
+    applyCloneOptions(clone, options);
+
+    return clone;
+  } catch (err) {
+    console.warn("cloneLoadedAsset fallback for " + name, err);
+    return null;
   }
-
-  const assetRoot = getAssetRoot(asset);
-  if (!assetRoot) return null;
-
-  const clone = assetRoot.clone(name, null, false);
-  if (!clone) return null;
-
-  clone.setEnabled(true);
-  clone.getChildMeshes(false).forEach(mesh => {
-    mesh.setEnabled(true);
-    mesh.isPickable = options.isPickable ?? true;
-    if (options.metadata) mesh.metadata = { ...options.metadata };
-  });
-
-  applyCloneOptions(clone, options);
-
-  return clone;
 }
 
 function applyCloneOptions(root, options) {

@@ -1,3 +1,5 @@
+import { getStageNumber } from "./stages.js";
+
 export const DEFAULT_WEAPONS = {
   shotgun: {
     id: "shotgun",
@@ -83,7 +85,7 @@ export const game = {
   selectedStage: "lahore-outskirts",
   graphicsQuality: "medium",
   showTouchControls: false,
-  autoFire: true,
+  autoFire: false,
   noAds: false,
   isEndless: false,
   isSniperScoped: false,
@@ -168,7 +170,7 @@ export function resetGameState() {
   game.continueUsed = false;
   game.continueInProgress = false;
   game.wave = 1;
-  game.stage = 1;
+  game.stage = getStageNumber(game.selectedStage) || 1;
   game.score = 0;
   game.runCoins = 0;
   game.killStreak = 0;
@@ -206,6 +208,8 @@ export function resetGameState() {
   game.lastShot = 0;
   game.spawnCount = 0;
   game.waveStarting = false;
+  game.waveCombatActive = false;
+  game.activeWaveAlienCount = 0;
   game.playerInvincibleUntil = performance.now() + 2500;
   game.waveCountdown = 0;
   game.mobileMove.x = 0;
